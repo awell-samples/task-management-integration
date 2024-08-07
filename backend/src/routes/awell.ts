@@ -66,7 +66,7 @@ export default async function (fastify: FastifyInstance) {
       // receive the webhook from awell, identify the type of activity, handle accordingly
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { activity, pathway, event_type } = request.body;
-      fastify.log.info({ body: request.body });
+      // fastify.log.info({ body: request.body });
       const taskService = new TaskService(client);
       if (activity.indirect_object?.type === "stakeholder") {
         if (event_type === "activity.created") {
