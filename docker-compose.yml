@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:14
+    container_name: task_management_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: awell
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    image: node:20
+    container_name: task_management_backend
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ./migrations:/migrations
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    command: sh -c "yarn install && yarn dev"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/awell
+      NODE_ENV: development
+
+volumes:
+  db_data:

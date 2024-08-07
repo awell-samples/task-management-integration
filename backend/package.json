@@ -1,0 +1,37 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "dev": "nodemon",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "migrate": "node-pg-migrate --config migration-config.ts --tsconfig tsconfig.json up",
+    "migrate:down": "node-pg-migrate --config migration-config.ts --tsconfig tsconfig.json down"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.32.35",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1",
+    "lodash": "^4.17.21",
+    "node-pg-migrate": "^7.6.1",
+    "pg": "^8.12.0",
+    "pino": "^9.3.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.8.0",
+    "@types/lodash": "^4.17.7",
+    "@types/node": "^22.1.0",
+    "@types/pg": "^8.11.6",
+    "eslint": "9.x",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "globals": "^15.9.0",
+    "nodemon": "^3.1.4",
+    "prettier": "^3.3.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.0.1"
+  }
+}
