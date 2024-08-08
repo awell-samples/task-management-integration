@@ -1,10 +1,14 @@
 import Fastify, { FastifyReply, FastifyRequest } from "fastify";
+import fastifyPostgres from "@fastify/postgres";
 import routes from "./routes";
+import { ErrorResponse } from "./error";
 
 const server = Fastify({
   logger: true,
 });
-
+server.register(fastifyPostgres, {
+  connectionString: process.env.DATABASE_URL,
+});
 routes.forEach((route) => server.register(route));
 
 server.get("/", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -16,12 +20,14 @@ server.get("/", async (request: FastifyRequest, reply: FastifyReply) => {
   return { message: "Hello, world!" };
 });
 
-interface ErrorResponse {
-  message: string;
-  statusCode: number;
-  data?: any;
-  stack?: string;
-}
+server.post("/", async (request: FastifyRequest, reply: FastifyReply) => {
+  console.log({
+    msg: "request received",
+    params: request.params,
+    body: request.body,
+  });
+  return { message: "Hello, world!" };
+});
 
 server.setErrorHandler((error, request, reply) => {
   server.log.error(error);
@@ -36,6 +42,7 @@ server.setErrorHandler((error, request, reply) => {
     const response: ErrorResponse = {
       message: error.message,
       statusCode: error.statusCode || 500,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: (error as any).data,
     };
     if (process.env.NODE_ENV !== "production") {
@@ -46,9 +53,13 @@ server.setErrorHandler((error, request, reply) => {
 });
 
 const start = async () => {
+  const port = Number(process.env.PORT || 3000);
   try {
-    await server.listen({ port: 3000, host: "0.0.0.0" });
-    console.log("Server listening on http://localhost:3000");
+    await server.listen({
+      port,
+      host: "0.0.0.0",
+    });
+    console.log(`Server listening on http://localhost:${port}`);
   } catch (err) {
     server.log.error(err);
     process.exit(1);

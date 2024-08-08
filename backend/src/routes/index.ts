@@ -1,3 +1,4 @@
 import taskRoutes from "./tasks";
-import awell from "./awell";
-export default [taskRoutes, awell];
+import awellRoutes from "./awell";
+import patientRoutes from "./patients";
+export default [taskRoutes, awellRoutes, patientRoutes];

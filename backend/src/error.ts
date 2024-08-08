@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export class BaseError extends Error {
   data: any = undefined;
   statusCode: number = 500;
@@ -26,4 +27,11 @@ export class BadRequestError extends BaseError {
     super(message, data, stack);
     this.name = BadRequestError.name;
   }
+}
+
+export interface ErrorResponse {
+  message: string;
+  statusCode: number;
+  data?: any;
+  stack?: string;
 }

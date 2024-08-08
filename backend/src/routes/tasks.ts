@@ -1,13 +1,9 @@
-import { FastifyInstance } from "fastify";
-import { Client } from "pg";
+import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { CreateTaskSchema, Task } from "../types";
-import TaskService from "../task-service";
+import TaskService from "../services/task-service";
 
 export default async function (fastify: FastifyInstance) {
-  const client = new Client({
-    connectionString: process.env.DATABASE_URL,
-  });
-  await client.connect();
+  const taskService = new TaskService(fastify);
 
   // Create a new task
   fastify.post<{ Body: Task }>(
@@ -15,15 +11,13 @@ export default async function (fastify: FastifyInstance) {
     { schema: CreateTaskSchema },
     async (request, reply) => {
       const taskToCreate: Task = request.body;
-      const taskService = new TaskService(client);
       const task = await taskService.create(taskToCreate);
       return reply.send(task);
-    },
+    }
   );
 
   // Get all tasks
   fastify.get("/tasks", async (request, reply) => {
-    const taskService = new TaskService(client);
     const rows = await taskService.findAll();
     return reply.send(rows);
   });
@@ -31,7 +25,6 @@ export default async function (fastify: FastifyInstance) {
   // find a task by awell id
   fastify.get("/tasks/find", async (request, reply) => {
     const { activity_id } = request.query as { activity_id: string };
-    const taskService = new TaskService(client);
     const task = await taskService.findByAwellActivityId(activity_id);
     return reply.send(task);
   });
@@ -41,28 +34,26 @@ export default async function (fastify: FastifyInstance) {
     "/tasks/:id",
     async (request, reply) => {
       const { id } = request.params;
-      const taskService = new TaskService(client);
       const task = await taskService.findById(id);
       return reply.send(task);
-    },
+    }
   );
 
   // Update a task
   fastify.put<{ Params: { id: string }; Body: Task }>(
     "/tasks/:id",
     async (request, reply) => {
-      const taskId = Number(request.params.id);
-      if (isNaN(taskId)) {
+      const { id: taskId } = request.params;
+      if (taskId === undefined) {
         return reply.code(400).send({ message: "Invalid task ID" });
       }
       const task: Task = request.body;
-      const taskService = new TaskService(client);
       const updatedTask = await taskService.update({ ...task, id: taskId });
       return reply.send({
         message: "Task updated successfully",
         task: updatedTask,
       });
-    },
+    }
   );
 
   // Delete a task
@@ -73,13 +64,23 @@ export default async function (fastify: FastifyInstance) {
       if (taskId === undefined) {
         return reply.code(400).send({ message: "Invalid task ID" });
       }
-      const taskService = new TaskService(client);
       await taskService.delete(taskId);
       return reply.send({ message: "Task deleted successfully", id: taskId });
-    },
+    }
   );
 
-  fastify.addHook("onClose", async () => {
-    await client.end();
-  });
+  fastify.get(
+    "/patients/:id/tasks",
+    async (
+      request: FastifyRequest<{ Params: { id: string } }>,
+      reply: FastifyReply
+    ) => {
+      try {
+        const tasks = await taskService.findByPatientId(request.params.id);
+        return reply.send(tasks);
+      } catch (err) {
+        return reply.status(404).send(err);
+      }
+    }
+  );
 }

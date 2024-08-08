@@ -1,7 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { Task, TaskStatus } from "../types";
-import TaskService from "../task-service";
-import { Client } from "pg";
+import TaskService from "../services/task-service";
 import { Type, type Static } from "@sinclair/typebox";
 
 const activityWebhookBody = Type.Object({
@@ -12,7 +11,7 @@ const activityWebhookBody = Type.Object({
       Type.Object({
         name: Type.String(),
         type: Type.String(),
-      }),
+      })
     ),
     object: Type.Object({
       id: Type.String(),
@@ -24,7 +23,7 @@ const activityWebhookBody = Type.Object({
         id: Type.String(),
         name: Type.String(),
         type: Type.String(),
-      }),
+      })
     ),
     date: Type.String({ format: "date-time" }),
     context: Type.Object({
@@ -55,19 +54,14 @@ const activityWebhookSchema = {
 };
 
 export default async function (fastify: FastifyInstance) {
-  const client = new Client({
-    connectionString: process.env.DATABASE_URL,
-  });
-  await client.connect();
+  const taskService = new TaskService(fastify);
+
   fastify.post<{ Body: Static<typeof activityWebhookBody> }>(
     "/awell",
     { schema: activityWebhookSchema },
     async (request, reply) => {
       // receive the webhook from awell, identify the type of activity, handle accordingly
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { activity, pathway, event_type } = request.body;
-      // fastify.log.info({ body: request.body });
-      const taskService = new TaskService(client);
       if (activity.indirect_object?.type === "stakeholder") {
         if (event_type === "activity.created") {
           // create a task
@@ -98,9 +92,6 @@ export default async function (fastify: FastifyInstance) {
         }
       }
       reply.status(200).send({ message: "ok" });
-    },
+    }
   );
-  fastify.addHook("onClose", async () => {
-    await client.end();
-  });
 }

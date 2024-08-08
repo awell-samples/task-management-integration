@@ -4,13 +4,16 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
+    "build": "tsc",
     "dev": "nodemon",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "migrate": "node-pg-migrate --config migration-config.ts --tsconfig tsconfig.json up",
-    "migrate:down": "node-pg-migrate --config migration-config.ts --tsconfig tsconfig.json down"
+    "migrate:down": "node-pg-migrate --config migration-config.ts --tsconfig tsconfig.json down",
+    "start": "node dist/index.js"
   },
   "dependencies": {
+    "@fastify/postgres": "^5.2.2",
     "@sinclair/typebox": "^0.32.35",
     "dotenv": "^16.4.5",
     "fastify": "^4.28.1",
