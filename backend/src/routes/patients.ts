@@ -15,7 +15,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
       } catch (err) {
         return reply.status(400).send(err);
       }
-    }
+    },
   );
 
   // Get all patients
@@ -28,7 +28,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
       } catch (err) {
         return reply.status(400).send(err);
       }
-    }
+    },
   );
 
   // Get a patient by ID
@@ -36,7 +36,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
     "/patients/:id",
     async (
       request: FastifyRequest<{ Params: { id: string } }>,
-      reply: FastifyReply
+      reply: FastifyReply,
     ) => {
       try {
         const patient = await patientService.findById(request.params.id);
@@ -44,7 +44,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
       } catch (err) {
         return reply.status(404).send(err);
       }
-    }
+    },
   );
 
   // Update a patient
@@ -55,7 +55,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
         Params: { id: string };
         Body: Partial<Patient>;
       }>,
-      reply: FastifyReply
+      reply: FastifyReply,
     ) => {
       try {
         const patient = await patientService.update({
@@ -66,7 +66,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
       } catch (err) {
         return reply.status(400).send(err);
       }
-    }
+    },
   );
 
   // Delete a patient
@@ -74,7 +74,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
     "/patients/:id",
     async (
       request: FastifyRequest<{ Params: { id: string } }>,
-      reply: FastifyReply
+      reply: FastifyReply,
     ) => {
       try {
         await patientService.delete(request.params.id);
@@ -82,7 +82,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
       } catch (err) {
         return reply.status(404).send(err);
       }
-    }
+    },
   );
 
   // Find a patient by Awell patient ID
@@ -90,16 +90,16 @@ export default async function patientRoutes(fastify: FastifyInstance) {
     "/patients/awell/:awellPatientId",
     async (
       request: FastifyRequest<{ Params: { awellPatientId: string } }>,
-      reply: FastifyReply
+      reply: FastifyReply,
     ) => {
       try {
         const patient = await patientService.findByAwellPatientId(
-          request.params.awellPatientId
+          request.params.awellPatientId,
         );
         return reply.send(patient);
       } catch (err) {
         return reply.status(404).send(err);
       }
-    }
+    },
   );
 }

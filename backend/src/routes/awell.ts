@@ -15,7 +15,7 @@ const activityWebhookBody = Type.Object({
       Type.Object({
         name: Type.String(),
         type: Type.String(),
-      })
+      }),
     ),
     object: Type.Object({
       id: Type.String(),
@@ -27,7 +27,7 @@ const activityWebhookBody = Type.Object({
         id: Type.String(),
         name: Type.String(),
         type: Type.String(),
-      })
+      }),
     ),
     date: Type.String({ format: "date-time" }),
     context: Type.Object({
@@ -76,7 +76,7 @@ export default async function (fastify: FastifyInstance) {
           if (err instanceof NotFoundError) {
             // create a new patient
             const profile = await awellService.getPatientProfile(
-              pathway.patient_id
+              pathway.patient_id,
             );
             await patientService.create({
               first_name: profile.first_name ?? "",
@@ -143,6 +143,6 @@ export default async function (fastify: FastifyInstance) {
         }
       }
       reply.status(200).send({ message: "ok" });
-    }
+    },
   );
 }

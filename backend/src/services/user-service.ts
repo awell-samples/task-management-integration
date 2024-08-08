@@ -15,7 +15,7 @@ export default class UserService {
         `INSERT INTO users (id, first_name, last_name, email, created_at, updated_at) 
          VALUES (uuid_generate_v4(), $1, $2, $3, NOW(), NOW()) 
          RETURNING *`,
-        [user.first_name, user.last_name, user.email]
+        [user.first_name, user.last_name, user.email],
       );
       return rows[0];
     } catch (err) {
@@ -26,7 +26,7 @@ export default class UserService {
 
   async findAll() {
     const { rows } = await this._pg.query(
-      "SELECT * FROM users ORDER BY created_at DESC"
+      "SELECT * FROM users ORDER BY created_at DESC",
     );
     return rows;
   }
@@ -34,7 +34,7 @@ export default class UserService {
   async findById(id: string) {
     const { rows } = await this._pg.query(
       "SELECT * FROM users WHERE id = $1 LIMIT 1",
-      [id]
+      [id],
     );
     if (rows.length === 0) {
       throw new NotFoundError("User not found", { id });
@@ -45,7 +45,7 @@ export default class UserService {
   async findByEmail(email: string) {
     const { rows } = await this._pg.query(
       "SELECT * FROM users WHERE email = $1 LIMIT 1",
-      [email]
+      [email],
     );
     if (rows.length === 0) {
       throw new NotFoundError("User not found", { email });
@@ -63,7 +63,7 @@ export default class UserService {
       `UPDATE users SET 
         first_name = $1, last_name = $2, email = $3, updated_at = NOW() 
         WHERE id = $4 RETURNING *`,
-      [user.first_name, user.last_name, user.email, user.id]
+      [user.first_name, user.last_name, user.email, user.id],
     );
 
     if (rows.length === 0) {
@@ -76,7 +76,7 @@ export default class UserService {
   async delete(id: string) {
     const { rowCount } = await this._pg.query(
       "DELETE FROM users WHERE id = $1",
-      [id]
+      [id],
     );
     if (rowCount === 0) {
       throw new NotFoundError("User not found", { id });
@@ -87,7 +87,7 @@ export default class UserService {
     try {
       const { rows } = await this._pg.query(
         `SELECT * FROM users WHERE email LIKE $1`,
-        [`%@${domain}`]
+        [`%@${domain}`],
       );
       return rows;
     } catch (err) {

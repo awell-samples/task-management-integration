@@ -13,7 +13,7 @@ export default async function (fastify: FastifyInstance) {
       const taskToCreate: Task = request.body;
       const task = await taskService.create(taskToCreate);
       return reply.send(task);
-    }
+    },
   );
 
   // Get all tasks
@@ -26,7 +26,7 @@ export default async function (fastify: FastifyInstance) {
       }
       const rows = await taskService.findAll();
       return reply.send(rows);
-    }
+    },
   );
 
   // find a task by awell id
@@ -43,7 +43,7 @@ export default async function (fastify: FastifyInstance) {
       const { id } = request.params;
       const task = await taskService.findById(id);
       return reply.send(task);
-    }
+    },
   );
 
   // Update a task
@@ -60,7 +60,7 @@ export default async function (fastify: FastifyInstance) {
         message: "Task updated successfully",
         task: updatedTask,
       });
-    }
+    },
   );
 
   // Delete a task
@@ -73,14 +73,14 @@ export default async function (fastify: FastifyInstance) {
       }
       await taskService.delete(taskId);
       return reply.send({ message: "Task deleted successfully", id: taskId });
-    }
+    },
   );
 
   fastify.get(
     "/patients/:id/tasks",
     async (
       request: FastifyRequest<{ Params: { id: string } }>,
-      reply: FastifyReply
+      reply: FastifyReply,
     ) => {
       try {
         const tasks = await taskService.findByPatientId(request.params.id);
@@ -88,6 +88,6 @@ export default async function (fastify: FastifyInstance) {
       } catch (err) {
         return reply.status(404).send(err);
       }
-    }
+    },
   );
 }

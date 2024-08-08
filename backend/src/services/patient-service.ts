@@ -18,7 +18,7 @@ export default class PatientService {
         `INSERT INTO patients (id, first_name, last_name, created_at, updated_at) 
         VALUES (uuid_generate_v4(), $1, $2, NOW(), NOW()) 
         RETURNING *`,
-        [patient.first_name, patient.last_name]
+        [patient.first_name, patient.last_name],
       );
 
       const createdPatient = rows[0];
@@ -40,7 +40,7 @@ export default class PatientService {
        FROM patients p
        LEFT JOIN patients_identifiers pi ON p.id = pi.patient_id
        GROUP BY p.id
-       ORDER BY p.created_at DESC`
+       ORDER BY p.created_at DESC`,
     );
 
     return rows.map(this.maybeWithIdentifiers);
@@ -55,7 +55,7 @@ export default class PatientService {
        WHERE p.id = $1
        GROUP BY p.id
        LIMIT 1`,
-      [id]
+      [id],
     );
 
     if (rows.length === 0) {
@@ -79,7 +79,7 @@ export default class PatientService {
         `UPDATE patients SET 
           first_name = $1, last_name = $2, updated_at = NOW() 
           WHERE id = $3 RETURNING *`,
-        [mergedPatient.first_name, mergedPatient.last_name, mergedPatient.id]
+        [mergedPatient.first_name, mergedPatient.last_name, mergedPatient.id],
       );
 
       await this.updateIdentifiers(mergedPatient.id!, patient.identifiers);
@@ -99,11 +99,11 @@ export default class PatientService {
 
       await this._pg.query(
         "DELETE FROM patients_identifiers WHERE patient_id = $1",
-        [id]
+        [id],
       );
       const { rowCount } = await this._pg.query(
         "DELETE FROM patients WHERE id = $1",
-        [id]
+        [id],
       );
 
       if (rowCount === 0) {
@@ -126,7 +126,7 @@ export default class PatientService {
        WHERE pi.system = $1 AND pi.value = $2
        GROUP BY p.id
        LIMIT 1`,
-      ["https://awellhealth.com", patientId]
+      ["https://awellhealth.com", patientId],
     );
 
     if (rows.length === 0) {
@@ -138,23 +138,23 @@ export default class PatientService {
 
   private async insertIdentifiers(
     patientId: string,
-    identifiers: Identifier[]
+    identifiers: Identifier[],
   ) {
     for (const identifier of identifiers) {
       await this._pg.query(
         `INSERT INTO patients_identifiers (patient_id, system, value) VALUES ($1, $2, $3)`,
-        [patientId, identifier.system, identifier.value]
+        [patientId, identifier.system, identifier.value],
       );
     }
   }
 
   private async updateIdentifiers(
     patientId: string,
-    identifiers: Identifier[] = []
+    identifiers: Identifier[] = [],
   ) {
     const { rows: currentIdentifiers } = await this._pg.query(
       "SELECT system, value FROM patients_identifiers WHERE patient_id = $1",
-      [patientId]
+      [patientId],
     );
 
     const identifiersToDelete = currentIdentifiers.filter(
@@ -162,8 +162,8 @@ export default class PatientService {
         !identifiers.some(
           (identifier) =>
             identifier.system === current.system &&
-            identifier.value === current.value
-        )
+            identifier.value === current.value,
+        ),
     );
 
     const identifiersToAdd = identifiers.filter(
@@ -171,15 +171,15 @@ export default class PatientService {
         !currentIdentifiers.some(
           (current) =>
             identifier.system === current.system &&
-            identifier.value === current.value
-        )
+            identifier.value === current.value,
+        ),
     );
 
     // Delete identifiers that are not in the updated list
     for (const identifier of identifiersToDelete) {
       await this._pg.query(
         "DELETE FROM patients_identifiers WHERE patient_id = $1 AND system = $2 AND value = $3",
-        [patientId, identifier.system, identifier.value]
+        [patientId, identifier.system, identifier.value],
       );
     }
 
@@ -192,7 +192,7 @@ export default class PatientService {
       ...patient,
       ...(patient.identifiers && {
         identifiers: patient.identifiers.filter(
-          (i: Identifier) => !_.isNil(i.system) && !_.isNil(i.value)
+          (i: Identifier) => !_.isNil(i.system) && !_.isNil(i.value),
         ),
       }),
     };

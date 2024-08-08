@@ -32,7 +32,7 @@ export default class TaskService {
           task.patient_id,
           task.assigned_to_user_id,
           task.assigned_by_user_id,
-        ]
+        ],
       );
       const createdTask = rows[0];
       await this.insertIdentifiers(createdTask.id, task.identifiers);
@@ -51,7 +51,7 @@ export default class TaskService {
          FROM tasks t
          LEFT JOIN tasks_identifiers ti ON t.id = ti.task_id
          GROUP BY t.id
-         ORDER BY t.created_at DESC`
+         ORDER BY t.created_at DESC`,
     );
     return rows.map(this.maybeWithIdentifiers);
   }
@@ -89,7 +89,7 @@ export default class TaskService {
        LEFT JOIN tasks_identifiers ti ON t.id = ti.task_id
        LEFT JOIN patients_identifiers pi ON p.id = pi.patient_id
        GROUP BY t.id, ub.id, ut.id, p.id
-       ORDER BY t.created_at DESC`
+       ORDER BY t.created_at DESC`,
     );
 
     return rows.map((t) => {
@@ -137,7 +137,7 @@ export default class TaskService {
        LEFT JOIN patients_identifiers pi ON p.id = pi.patient_id
        WHERE t.id = $1
        GROUP BY t.id, ub.id, ut.id, p.id`,
-      [taskId]
+      [taskId],
     );
 
     if (rows.length === 0) {
@@ -164,7 +164,7 @@ export default class TaskService {
        WHERE ti.system = $1 AND ti.value = $2
        GROUP BY t.id
        LIMIT 1`,
-      ["https://awellhealth.com/activities", activityId]
+      ["https://awellhealth.com/activities", activityId],
     );
 
     if (rows.length === 0) {
@@ -184,7 +184,7 @@ export default class TaskService {
        WHERE t.id = $1
        GROUP BY t.id
        LIMIT 1`,
-      [id]
+      [id],
     );
 
     if (rows.length === 0) {
@@ -204,7 +204,7 @@ export default class TaskService {
        WHERE t.patient_id = $1
        GROUP BY t.id
        ORDER BY t.created_at DESC`,
-      [patientId]
+      [patientId],
     );
 
     if (rows.length === 0) {
@@ -243,7 +243,7 @@ export default class TaskService {
           mergedTask.assigned_by_user_id,
           mergedTask.patient_id,
           mergedTask.id,
-        ]
+        ],
       );
 
       await this.updateIdentifiers(mergedTask.id!, task.identifiers);
@@ -268,7 +268,7 @@ export default class TaskService {
 
       const { rowCount } = await this._pg.query(
         "DELETE FROM tasks WHERE id = $1",
-        [id]
+        [id],
       );
 
       if (rowCount === 0) {
@@ -284,19 +284,19 @@ export default class TaskService {
 
   private async insertIdentifiers(
     taskId: string,
-    identifiers: Identifier[] = []
+    identifiers: Identifier[] = [],
   ) {
     for (const identifier of identifiers) {
       await this._pg.query(
         `INSERT INTO tasks_identifiers (task_id, system, value) VALUES ($1, $2, $3)`,
-        [taskId, identifier.system, identifier.value]
+        [taskId, identifier.system, identifier.value],
       );
     }
   }
 
   private async updateIdentifiers(
     taskId: string,
-    identifiers: Identifier[] = []
+    identifiers: Identifier[] = [],
   ) {
     const client = await this._pg.connect();
     try {
@@ -304,7 +304,7 @@ export default class TaskService {
 
       const { rows: currentIdentifiers } = await client.query(
         "SELECT system, value FROM tasks_identifiers WHERE task_id = $1",
-        [taskId]
+        [taskId],
       );
 
       const identifiersToDelete = currentIdentifiers.filter(
@@ -312,8 +312,8 @@ export default class TaskService {
           !identifiers.some(
             (identifier) =>
               identifier.system === current.system &&
-              identifier.value === current.value
-          )
+              identifier.value === current.value,
+          ),
       );
 
       const identifiersToAdd = identifiers.filter(
@@ -321,15 +321,15 @@ export default class TaskService {
           !currentIdentifiers.some(
             (current) =>
               identifier.system === current.system &&
-              identifier.value === current.value
-          )
+              identifier.value === current.value,
+          ),
       );
 
       // Delete identifiers that are not in the updated list
       for (const identifier of identifiersToDelete) {
         await client.query(
           "DELETE FROM tasks_identifiers WHERE task_id = $1 AND system = $2 AND value = $3",
-          [taskId, identifier.system, identifier.value]
+          [taskId, identifier.system, identifier.value],
         );
       }
 
@@ -350,7 +350,7 @@ export default class TaskService {
       ...task,
       ...(task.identifiers && {
         identifiers: task.identifiers.filter(
-          (i: Identifier) => !_.isNil(i.system) && !_.isNil(i.value)
+          (i: Identifier) => !_.isNil(i.system) && !_.isNil(i.value),
         ),
       }),
     };
