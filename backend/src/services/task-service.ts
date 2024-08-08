@@ -56,6 +56,105 @@ export default class TaskService {
     return rows.map(this.maybeWithIdentifiers);
   }
 
+  async findAllPopulated() {
+    const { rows } = await this._pg.query(
+      `SELECT t.*, 
+              json_build_object(
+                'id', ub.id, 
+                'first_name', ub.first_name, 
+                'last_name', ub.last_name, 
+                'email', ub.email
+              ) AS assigned_by,
+              json_build_object(
+                'id', ut.id, 
+                'first_name', ut.first_name, 
+                'last_name', ut.last_name, 
+                'email', ut.email
+              ) AS assigned_to,
+              json_build_object(
+                'id', p.id, 
+                'first_name', p.first_name, 
+                'last_name', p.last_name,
+                'identifiers', json_agg(
+                  json_build_object('system', pi.system, 'value', pi.value)
+                )
+              ) AS patient,
+              json_agg(
+                json_build_object('system', ti.system, 'value', ti.value)
+              ) AS identifiers
+       FROM tasks t
+       LEFT JOIN users ub ON t.assigned_by_user_id = ub.id
+       LEFT JOIN users ut ON t.assigned_to_user_id = ut.id
+       LEFT JOIN patients p ON t.patient_id = p.id
+       LEFT JOIN tasks_identifiers ti ON t.id = ti.task_id
+       LEFT JOIN patients_identifiers pi ON p.id = pi.patient_id
+       GROUP BY t.id, ub.id, ut.id, p.id
+       ORDER BY t.created_at DESC`
+    );
+
+    return rows.map((t) => {
+      const { patient, ...rest } = t;
+      return {
+        ...this.maybeWithIdentifiers(rest),
+        ...(!_.isEmpty(patient) && {
+          patient: this.maybeWithIdentifiers(patient),
+        }),
+      };
+    });
+  }
+
+  async findPopulatedTaskById(taskId: string) {
+    const { rows } = await this._pg.query(
+      `SELECT t.*, 
+              json_build_object(
+                'id', ub.id, 
+                'first_name', ub.first_name, 
+                'last_name', ub.last_name, 
+                'email', ub.email
+              ) AS assigned_by,
+              json_build_object(
+                'id', ut.id, 
+                'first_name', ut.first_name, 
+                'last_name', ut.last_name, 
+                'email', ut.email
+              ) AS assigned_to,
+              json_build_object(
+                'id', p.id, 
+                'first_name', p.first_name, 
+                'last_name', p.last_name,
+                'identifiers', json_agg(
+                  json_build_object('system', pi.system, 'value', pi.value)
+                )
+              ) AS patient,
+              json_agg(
+                json_build_object('system', ti.system, 'value', ti.value)
+              ) AS identifiers
+       FROM tasks t
+       LEFT JOIN users ub ON t.assigned_by_user_id = ub.id
+       LEFT JOIN users ut ON t.assigned_to_user_id = ut.id
+       LEFT JOIN patients p ON t.patient_id = p.id
+       LEFT JOIN tasks_identifiers ti ON t.id = ti.task_id
+       LEFT JOIN patients_identifiers pi ON p.id = pi.patient_id
+       WHERE t.id = $1
+       GROUP BY t.id, ub.id, ut.id, p.id`,
+      [taskId]
+    );
+
+    if (rows.length === 0) {
+      throw new NotFoundError("Task not found", { id: taskId });
+    }
+
+    return rows.map((t) => {
+      const { patient, ...rest } = t;
+      return {
+        ...this.maybeWithIdentifiers(rest),
+        ...(!_.isEmpty(patient) && {
+          patient: this.maybeWithIdentifiers(patient),
+        }),
+      };
+    })[0];
+  }
+
   async findByAwellActivityId(activityId: string) {
     const { rows } = await this._pg.query(
       `SELECT t.*, 

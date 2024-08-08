@@ -1,7 +1,9 @@
 import Fastify, { FastifyReply, FastifyRequest } from "fastify";
 import fastifyPostgres from "@fastify/postgres";
+import fastifyEnv from "@fastify/env";
 import routes from "./routes";
 import { ErrorResponse } from "./error";
+import { configSchema } from "./config";
 
 const server = Fastify({
   logger: true,
@@ -9,6 +11,13 @@ const server = Fastify({
 server.register(fastifyPostgres, {
   connectionString: process.env.DATABASE_URL,
 });
+
+void server.register(fastifyEnv, {
+  confKey: "config",
+  schema: configSchema,
+  dotenv: true,
+});
+
 routes.forEach((route) => server.register(route));
 
 server.get("/", async (request: FastifyRequest, reply: FastifyReply) => {

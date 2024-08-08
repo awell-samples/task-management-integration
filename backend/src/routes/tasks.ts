@@ -17,10 +17,17 @@ export default async function (fastify: FastifyInstance) {
   );
 
   // Get all tasks
-  fastify.get("/tasks", async (request, reply) => {
-    const rows = await taskService.findAll();
-    return reply.send(rows);
-  });
+  fastify.get<{ Querystring: { populated?: string } }>(
+    "/tasks",
+    async (request, reply) => {
+      if (request.query.populated === "true") {
+        const rows = await taskService.findAllPopulated();
+        return reply.send(rows);
+      }
+      const rows = await taskService.findAll();
+      return reply.send(rows);
+    }
+  );
 
   // find a task by awell id
   fastify.get("/tasks/find", async (request, reply) => {
