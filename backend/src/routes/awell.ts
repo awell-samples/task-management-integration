@@ -74,38 +74,35 @@ export default async function (fastify: FastifyInstance) {
         event_type,
       });
 
-      // maybe create patient
-      if (!_.isNil(pathway.patient_id)) {
-        try {
-          await patientService.findByAwellPatientId(pathway.patient_id);
-        } catch (err) {
-          if (err instanceof NotFoundError) {
-            // create a new patient
-            const profile = await awellService.getPatientProfile(
-              pathway.patient_id,
-            );
-            await patientService.create({
-              first_name: profile.first_name ?? "",
-              last_name: profile.last_name ?? "",
-              identifiers: [
-                {
-                  system: "https://awellhealth.com",
-                  value: pathway.patient_id,
-                },
-              ],
-            });
-          } else if (
-            err instanceof BadRequestError &&
-            err.message.includes(
-              "duplicate key value violates unique constraint",
-            )
-          ) {
-            // do nothing
-          } else {
-            throw err;
-          }
+      // maybe create the patient
+      try {
+        await patientService.findByAwellPatientId(pathway.patient_id);
+      } catch (err) {
+        if (err instanceof NotFoundError) {
+          // create a new patient
+          const profile = await awellService.getPatientProfile(
+            pathway.patient_id,
+          );
+          await patientService.create({
+            first_name: profile.first_name ?? "",
+            last_name: profile.last_name ?? "",
+            identifiers: [
+              {
+                system: "https://awellhealth.com",
+                value: pathway.patient_id,
+              },
+            ],
+          });
+        } else if (
+          err instanceof BadRequestError &&
+          err.message.includes("duplicate key value violates unique constraint")
+        ) {
+          // do nothing
+        } else {
+          throw err;
         }
       }
+
       if (activity.indirect_object?.type === "stakeholder") {
         if (event_type === "activity.created") {
           // create a task
@@ -113,6 +110,7 @@ export default async function (fastify: FastifyInstance) {
             title: activity.object.name,
             description: activity.object.type,
             task_type: "awell",
+            patient_id: pathway.patient_id,
             task_data: {
               activity,
               pathway,
