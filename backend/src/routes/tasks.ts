@@ -79,10 +79,17 @@ export default async function (fastify: FastifyInstance) {
   fastify.get(
     "/patients/:id/tasks",
     async (
-      request: FastifyRequest<{ Params: { id: string } }>,
+      request: FastifyRequest<{
+        Params: { id: string };
+        Querystring: { populated?: "true" };
+      }>,
       reply: FastifyReply,
     ) => {
       try {
+        if (request.query.populated === "true") {
+          const tasks = await taskService.findAllPopulated(request.params.id);
+          return reply.send(tasks);
+        }
         const tasks = await taskService.findByPatientId(request.params.id);
         return reply.send(tasks);
       } catch (err) {

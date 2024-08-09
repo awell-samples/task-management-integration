@@ -1,5 +1,11 @@
 import { BadRequestError, NotFoundError } from "../error";
-import { Identifier, Patient, type Task } from "../types";
+import {
+  Identifier,
+  Patient,
+  type Task,
+  type PopulatedTask,
+  User,
+} from "../types";
 import _ from "lodash";
 import { FastifyInstance } from "fastify";
 
@@ -56,9 +62,9 @@ export default class TaskService {
     return rows.map(this.maybeWithIdentifiers);
   }
 
-  async findAllPopulated() {
-    const { rows } = await this._pg.query(
-      `SELECT t.*, 
+  async findAllPopulated(patientId?: string) {
+    const query = `
+      SELECT t.*, 
               json_build_object(
                 'id', ub.id, 
                 'first_name', ub.first_name, 
@@ -88,33 +94,13 @@ export default class TaskService {
        LEFT JOIN patients p ON t.patient_id = p.id
        LEFT JOIN tasks_identifiers ti ON t.id = ti.task_id
        LEFT JOIN patients_identifiers pi ON p.id = pi.patient_id
+       ${patientId ? `WHERE t.patient_id = $1` : ""}
        GROUP BY t.id, ub.id, ut.id, p.id
-       ORDER BY t.created_at DESC`,
-    );
+       ORDER BY t.created_at DESC`;
 
-    return rows.map((t) => {
-      const {
-        patient,
-        patient_id,
-        assigned_by,
-        assigned_by_user_id,
-        assigned_to,
-        assigned_to_user_id,
-        ...rest
-      } = t;
-      return {
-        ...this.maybeWithIdentifiers(rest),
-        ...(!_.isNil(patient_id) && {
-          patient: this.maybeWithIdentifiers(patient),
-        }),
-        ...(!_.isNil(assigned_by_user_id) && {
-          assigned_by: this.maybeWithIdentifiers(assigned_by),
-        }),
-        ...(!_.isNil(assigned_to_user_id) && {
-          assigned_to: this.maybeWithIdentifiers(assigned_to),
-        }),
-      };
-    });
+    const { rows } = await this._pg.query(query, patientId ? [patientId] : []);
+
+    return rows.map(this.populateTask);
   }
 
   async findPopulatedTaskById(taskId: string) {
@@ -158,15 +144,7 @@ export default class TaskService {
       throw new NotFoundError("Task not found", { id: taskId });
     }
 
-    return rows.map((t) => {
-      const { patient, patient_id, ...rest } = t;
-      return {
-        ...this.maybeWithIdentifiers(rest),
-        ...(!_.isNil(patient_id) && {
-          patient: this.maybeWithIdentifiers(patient),
-        }),
-      };
-    })[0];
+    return rows.map(this.populateTask)[0];
   }
 
   async findByAwellActivityId(activityId: string) {
@@ -366,6 +344,30 @@ export default class TaskService {
         identifiers: resource.identifiers.filter(
           (i: Identifier) => !_.isNil(i.system) && !_.isNil(i.value),
         ),
+      }),
+    };
+  }
+
+  private populateTask(task: PopulatedTask) {
+    const {
+      patient,
+      patient_id,
+      assigned_by,
+      assigned_by_user_id,
+      assigned_to,
+      assigned_to_user_id,
+      ...rest
+    } = task;
+    return {
+      ...this.maybeWithIdentifiers(rest),
+      ...(!_.isNil(patient?.id) && {
+        patient: this.maybeWithIdentifiers(patient),
+      }),
+      ...(!_.isNil(assigned_by?.id) && {
+        assigned_by,
+      }),
+      ...(!_.isNil(assigned_to) && {
+        assigned_to,
       }),
     };
   }

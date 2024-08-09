@@ -1,4 +1,6 @@
 import { Identifier } from "./identifier";
+import { Patient } from "./patient";
+import { User } from "./user";
 
 export interface Task {
   id?: string;
@@ -17,6 +19,12 @@ export interface Task {
   created_at?: Date;
   updated_at?: Date;
   identifiers?: Identifier[];
+}
+
+export interface PopulatedTask extends Task {
+  assigned_to?: User;
+  assigned_by?: User;
+  patient?: Patient;
 }
 
 export enum TaskStatus {
