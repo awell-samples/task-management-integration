@@ -1,5 +1,5 @@
 import { BadRequestError, NotFoundError } from "../error";
-import { type Patient, type Identifier } from "../types";
+import { type Patient, type Identifier, Valid } from "../types";
 import _ from "lodash";
 import { FastifyInstance } from "fastify";
 
@@ -117,7 +117,7 @@ export default class PatientService {
     }
   }
 
-  async findByAwellPatientId(patientId: string) {
+  async findByAwellPatientId(patientId: string): Promise<Valid<Patient>> {
     const { rows } = await this._pg.query(
       `SELECT p.*, 
               json_agg(json_build_object('system', pi.system, 'value', pi.value)) AS identifiers
@@ -187,7 +187,7 @@ export default class PatientService {
     await this.insertIdentifiers(patientId, identifiersToAdd);
   }
 
-  private maybeWithIdentifiers(patient: Patient) {
+  private maybeWithIdentifiers(patient: Valid<Patient>) {
     return {
       ...patient,
       ...(patient.identifiers && {

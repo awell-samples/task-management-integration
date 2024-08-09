@@ -23,7 +23,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
         const users = await userService.findAll();
         reply.send(users);
       }
-    }
+    },
   );
 
   // Get all users
@@ -32,7 +32,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const user = await userService.findByEmail(request.query.email);
       return reply.send(user);
-    }
+    },
   );
 
   fastify.get<{ Querystring: { domain?: string } }>(
@@ -41,7 +41,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
       switch (true) {
         case !_.isNil(request.query.domain): {
           const user = await userService.getUsersByEmailDomain(
-            request.query.domain
+            request.query.domain,
           );
           return reply.send(user);
         }
@@ -49,7 +49,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
           throw new Error("Invalid query params. Please search by domain");
         }
       }
-    }
+    },
   );
 
   // Get a user by ID
@@ -58,7 +58,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const user = await userService.findById(request.params.id);
       reply.send(user);
-    }
+    },
   );
 
   // Update a user by ID
@@ -70,7 +70,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
         ...request.body,
       });
       reply.send(user);
-    }
+    },
   );
 
   // Delete a user by ID
@@ -79,6 +79,6 @@ export default async function userRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       await userService.delete(request.params.id);
       reply.status(204).send();
-    }
+    },
   );
 }
