@@ -1,5 +1,5 @@
 import { BadRequestError, NotFoundError } from "../error";
-import { Identifier, type Task } from "../types";
+import { Identifier, Patient, type Task } from "../types";
 import _ from "lodash";
 import { FastifyInstance } from "fastify";
 
@@ -93,11 +93,25 @@ export default class TaskService {
     );
 
     return rows.map((t) => {
-      const { patient, ...rest } = t;
+      const {
+        patient,
+        patient_id,
+        assigned_by,
+        assigned_by_user_id,
+        assigned_to,
+        assigned_to_user_id,
+        ...rest
+      } = t;
       return {
         ...this.maybeWithIdentifiers(rest),
-        ...(!_.isEmpty(patient) && {
+        ...(!_.isNil(patient_id) && {
           patient: this.maybeWithIdentifiers(patient),
+        }),
+        ...(!_.isNil(assigned_by_user_id) && {
+          assigned_by: this.maybeWithIdentifiers(assigned_by),
+        }),
+        ...(!_.isNil(assigned_to_user_id) && {
+          assigned_to: this.maybeWithIdentifiers(assigned_to),
         }),
       };
     });
@@ -145,10 +159,10 @@ export default class TaskService {
     }
 
     return rows.map((t) => {
-      const { patient, ...rest } = t;
+      const { patient, patient_id, ...rest } = t;
       return {
         ...this.maybeWithIdentifiers(rest),
-        ...(!_.isEmpty(patient) && {
+        ...(!_.isNil(patient_id) && {
           patient: this.maybeWithIdentifiers(patient),
         }),
       };
@@ -345,11 +359,11 @@ export default class TaskService {
     }
   }
 
-  private maybeWithIdentifiers(task: Task) {
+  private maybeWithIdentifiers(resource: Task | Patient) {
     return {
-      ...task,
-      ...(task.identifiers && {
-        identifiers: task.identifiers.filter(
+      ...resource,
+      ...(resource.identifiers && {
+        identifiers: resource.identifiers.filter(
           (i: Identifier) => !_.isNil(i.system) && !_.isNil(i.value),
         ),
       }),
