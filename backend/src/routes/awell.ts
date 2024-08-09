@@ -117,7 +117,7 @@ export default async function (fastify: FastifyInstance) {
           // find the task and mark it as done
           try {
             const task = await taskService.findByAwellActivityId(activity.id);
-            await taskService.update({
+            await taskService.updateStatus({
               id: task.id,
               status: TaskStatus.COMPLETED,
             });

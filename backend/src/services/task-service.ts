@@ -1,11 +1,5 @@
 import { BadRequestError, NotFoundError } from "../error";
-import {
-  Identifier,
-  Patient,
-  type Task,
-  type PopulatedTask,
-  User,
-} from "../types";
+import { Identifier, Patient, type Task, type PopulatedTask } from "../types";
 import _ from "lodash";
 import { FastifyInstance } from "fastify";
 
@@ -100,7 +94,7 @@ export default class TaskService {
 
     const { rows } = await this._pg.query(query, patientId ? [patientId] : []);
 
-    return rows.map(this.populateTask);
+    return rows.map((t) => this.populateTask(t));
   }
 
   async findPopulatedTaskById(taskId: string) {
@@ -144,7 +138,7 @@ export default class TaskService {
       throw new NotFoundError("Task not found", { id: taskId });
     }
 
-    return rows.map(this.populateTask)[0];
+    return rows.map((t) => this.populateTask(t))[0];
   }
 
   async findByAwellActivityId(activityId: string) {
@@ -250,6 +244,13 @@ export default class TaskService {
     }
   }
 
+  async updateStatus(task: Partial<Task>) {
+    await this._pg.query(
+      `UPDATE tasks SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [task.status, task.id],
+    );
+  }
+
   async delete(id: string) {
     try {
       await this._pg.query("BEGIN");
@@ -349,15 +350,7 @@ export default class TaskService {
   }
 
   private populateTask(task: PopulatedTask) {
-    const {
-      patient,
-      patient_id,
-      assigned_by,
-      assigned_by_user_id,
-      assigned_to,
-      assigned_to_user_id,
-      ...rest
-    } = task;
+    const { patient, assigned_by, assigned_to, ...rest } = task;
     return {
       ...this.maybeWithIdentifiers(rest),
       ...(!_.isNil(patient?.id) && {

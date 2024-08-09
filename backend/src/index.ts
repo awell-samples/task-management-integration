@@ -62,7 +62,7 @@ server.setErrorHandler((error, request, reply) => {
 });
 
 const start = async () => {
-  const port = Number(process.env.PORT || 3000);
+  const port = Number(process.env.PORT || 3001);
   try {
     await server.listen({
       port,
