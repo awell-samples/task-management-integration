@@ -4,7 +4,7 @@ import TaskService from "../services/task-service";
 import { Type, type Static } from "@sinclair/typebox";
 import PatientService from "../services/patient-service";
 import _ from "lodash";
-import { NotFoundError } from "../error";
+import { BadRequestError, NotFoundError } from "../error";
 import AwellService from "../services/awell-service";
 
 const activityWebhookBody = Type.Object({
@@ -67,6 +67,12 @@ export default async function (fastify: FastifyInstance) {
     { schema: activityWebhookSchema },
     async (request, reply) => {
       const { activity, pathway, event_type } = request.body;
+      fastify.log.debug({
+        msg: "Received awell webhook",
+        activity,
+        pathway,
+        event_type,
+      });
 
       // maybe create patient
       if (!_.isNil(pathway.patient_id)) {
@@ -88,6 +94,13 @@ export default async function (fastify: FastifyInstance) {
                 },
               ],
             });
+          } else if (
+            err instanceof BadRequestError &&
+            err.message.includes(
+              "duplicate key value violates unique constraint",
+            )
+          ) {
+            // do nothing
           } else {
             throw err;
           }
@@ -114,6 +127,11 @@ export default async function (fastify: FastifyInstance) {
           };
           try {
             await taskService.create(task);
+            fastify.log.debug({
+              msg: "Task created from activity creation",
+              activity,
+              pathway,
+            });
           } catch (err) {
             fastify.log.error({
               err,
@@ -130,6 +148,11 @@ export default async function (fastify: FastifyInstance) {
             await taskService.update({
               id: task.id,
               status: TaskStatus.COMPLETED,
+            });
+            fastify.log.debug({
+              msg: "Task completed from activity completion",
+              activity,
+              pathway,
             });
           } catch (err) {
             fastify.log.error({

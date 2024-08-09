@@ -20,6 +20,7 @@ export default class AwellService {
           profile: {
             first_name: true,
             last_name: true,
+            mobile_phone: true,
           },
         },
         __args: {

@@ -29,6 +29,8 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/awell
       NODE_ENV: development
+    env_file:
+      - ./backend/.env
 
 volumes:
   db_data:
