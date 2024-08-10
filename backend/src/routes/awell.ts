@@ -3,7 +3,6 @@ import { Task, TaskStatus } from "../types";
 import TaskService from "../services/task-service";
 import { Type, type Static } from "@sinclair/typebox";
 import PatientService from "../services/patient-service";
-import _ from "lodash";
 import { BadRequestError, NotFoundError } from "../error";
 import AwellService from "../services/awell-service";
 

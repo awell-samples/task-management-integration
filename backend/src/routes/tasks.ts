@@ -17,17 +17,21 @@ export default async function (fastify: FastifyInstance) {
   );
 
   // Get all tasks
-  fastify.get<{ Querystring: { populated?: string } }>(
-    "/tasks",
-    async (request, reply) => {
-      if (request.query.populated === "true") {
-        const rows = await taskService.findAllPopulated();
-        return reply.send(rows);
-      }
-      const rows = await taskService.findAll();
-      return reply.send(rows);
-    },
-  );
+  fastify.get<{
+    Querystring: {
+      populated?: string;
+      status?: string;
+      patient_id?: string;
+    };
+  }>("/tasks", async (request, reply) => {
+    const { status, populated, patient_id } = request.query;
+    const rows = await taskService.findAll({
+      ...(status && { status: status.split(",") }),
+      ...(patient_id && { patient_id }),
+      ...(populated && { populated: populated === "true" }),
+    });
+    return reply.send(rows);
+  });
 
   // find a task by awell id
   fastify.get("/tasks/find", async (request, reply) => {
@@ -73,28 +77,6 @@ export default async function (fastify: FastifyInstance) {
       }
       await taskService.delete(taskId);
       return reply.send({ message: "Task deleted successfully", id: taskId });
-    },
-  );
-
-  fastify.get(
-    "/patients/:id/tasks",
-    async (
-      request: FastifyRequest<{
-        Params: { id: string };
-        Querystring: { populated?: "true" };
-      }>,
-      reply: FastifyReply,
-    ) => {
-      try {
-        if (request.query.populated === "true") {
-          const tasks = await taskService.findAllPopulated(request.params.id);
-          return reply.send(tasks);
-        }
-        const tasks = await taskService.findByPatientId(request.params.id);
-        return reply.send(tasks);
-      } catch (err) {
-        return reply.status(404).send(err);
-      }
     },
   );
 }

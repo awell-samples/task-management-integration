@@ -9,6 +9,16 @@ import {
 import _ from "lodash";
 import { FastifyInstance } from "fastify";
 
+export interface FindAllOptions {
+  status?: string[];
+  patient_id?: string;
+  populate?: {
+    assigned_by?: boolean;
+    assigned_to?: boolean;
+    patient?: boolean;
+  };
+}
+
 export default class TaskService {
   private _pg: FastifyInstance["pg"];
   private logger: FastifyInstance["log"];
@@ -58,58 +68,48 @@ export default class TaskService {
     }
   }
 
-  async findAll() {
-    const { rows } = await this._pg.query(
-      `SELECT t.*, 
-                json_agg(json_build_object('system', ti.system, 'value', ti.value)) AS identifiers
-         FROM tasks t
-         LEFT JOIN tasks_identifiers ti ON t.id = ti.task_id
-         GROUP BY t.id
-         ORDER BY t.created_at DESC`,
-    );
-    this.logger.debug("Returning tasks", { count: rows.length });
-    return rows.map(this.maybeWithIdentifiers);
-  }
+  async findAll(options: FindAllOptions = {}) {
+    const { status, patient_id, populate } = options;
+    this.logger.debug("Finding tasks", { options });
+    let query = `
+      SELECT 
+        t.*,
+        ${populate?.assigned_by ? "json_build_object('id', ab.id, 'name', ab.name) as assigned_by," : ""}
+        ${populate?.assigned_to ? "json_build_object('id', at.id, 'name', at.name) as assigned_to," : ""}
+        ${populate?.patient ? "json_build_object('id', p.id, 'name', p.name) as patient," : ""}
+        json_agg(json_build_object('system', ti.system, 'value', ti.value)) AS identifiers
+      FROM tasks t
+      LEFT JOIN tasks_identifiers ti ON t.id = ti.task_id
+      ${populate?.assigned_by ? "LEFT JOIN users ab ON t.assigned_by_user_id = ab.id" : ""}
+      ${populate?.assigned_to ? "LEFT JOIN users at ON t.assigned_to_user_id = at.id" : ""}
+      ${populate?.patient ? "LEFT JOIN patients p ON t.patient_id = p.id" : ""}
+    `;
 
-  async findAllPopulated(patientId?: string) {
-    const query = `
-      SELECT t.*, 
-              json_build_object(
-                'id', ub.id, 
-                'first_name', ub.first_name, 
-                'last_name', ub.last_name, 
-                'email', ub.email
-              ) AS assigned_by,
-              json_build_object(
-                'id', ut.id, 
-                'first_name', ut.first_name, 
-                'last_name', ut.last_name, 
-                'email', ut.email
-              ) AS assigned_to,
-              json_build_object(
-                'id', p.id, 
-                'first_name', p.first_name, 
-                'last_name', p.last_name,
-                'identifiers', json_agg(
-                  json_build_object('system', pi.system, 'value', pi.value)
-                )
-              ) AS patient,
-              json_agg(
-                json_build_object('system', ti.system, 'value', ti.value)
-              ) AS identifiers
-       FROM tasks t
-       LEFT JOIN users ub ON t.assigned_by_user_id = ub.id
-       LEFT JOIN users ut ON t.assigned_to_user_id = ut.id
-       LEFT JOIN patients p ON t.patient_id = p.id
-       LEFT JOIN tasks_identifiers ti ON t.id = ti.task_id
-       LEFT JOIN patients_identifiers pi ON p.id = pi.patient_id
-       ${patientId ? `WHERE t.patient_id = $1` : ""}
-       GROUP BY t.id, ub.id, ut.id, p.id
-       ORDER BY t.created_at DESC`;
+    const conditions = [];
+    const params: (string | string[])[] = [];
 
-    const { rows } = await this._pg.query(query, patientId ? [patientId] : []);
-    this.logger.debug("Returning tasks", { count: rows.length });
-    return rows.map((t) => this.populateTask(t));
+    // Handle status filter
+    if (!_.isNil(status) && status.length > 0) {
+      conditions.push(`t.status = ANY($${params.length + 1})`);
+      params.push(status);
+    }
+
+    // Handle patient_id filter
+    if (!_.isNil(patient_id)) {
+      conditions.push(`t.patient_id = $${params.length + 1}`);
+      params.push(patient_id);
+    }
+
+    // Add conditions to the query
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(" AND ")}`;
+    }
+
+    query += ` GROUP BY t.id`;
+
+    const result = await this._pg.query(query, params);
+    this.logger.debug("Returning tasks", { count: result.rows.length });
+    return result.rows;
   }
 
   async findPopulatedTaskById(taskId: string) {
@@ -161,11 +161,11 @@ export default class TaskService {
       `SELECT t.*, 
               json_agg(json_build_object('system', ti.system, 'value', ti.value)) AS identifiers
        FROM tasks t
-       JOIN tasks_identifiers ti ON t.id = ti.task_id
+       LEFT JOIN tasks_identifiers ti ON t.id = ti.task_id
        WHERE ti.system = $1 AND ti.value = $2
        GROUP BY t.id
        LIMIT 1`,
-      ["https://awellhealth.com/activities", activityId],
+      ["https://awellhealth.com", activityId],
     );
 
     if (rows.length === 0) {
