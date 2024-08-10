@@ -5,9 +5,11 @@ import { FastifyInstance } from "fastify";
 
 export default class PatientService {
   private _pg: FastifyInstance["pg"];
+  private logger: FastifyInstance["log"];
 
   constructor(fastify: FastifyInstance) {
     this._pg = fastify.pg;
+    this.logger = fastify.log;
   }
 
   async create(patient: Patient) {
@@ -20,11 +22,15 @@ export default class PatientService {
         RETURNING *`,
         [patient.first_name, patient.last_name],
       );
+      this.logger.debug("Created patient", { patient: rows[0] });
 
       const createdPatient = rows[0];
       await this.insertIdentifiers(createdPatient.id, patient.identifiers);
-
+      this.logger.debug("Inserted identifiers", {
+        identifiers: patient.identifiers,
+      });
       await this._pg.query("COMMIT");
+      this.logger.debug("Committed transaction");
       return this.maybeWithIdentifiers(createdPatient);
     } catch (err) {
       await this._pg.query("ROLLBACK");
@@ -42,7 +48,7 @@ export default class PatientService {
        GROUP BY p.id
        ORDER BY p.created_at DESC`,
     );
-
+    this.logger.debug("Returning patients", { count: rows.length });
     return rows.map(this.maybeWithIdentifiers);
   }
 
@@ -57,7 +63,7 @@ export default class PatientService {
        LIMIT 1`,
       [id],
     );
-
+    this.logger.debug("Found patient", { id });
     if (rows.length === 0) {
       throw new NotFoundError("Patient not found", { id });
     }
@@ -81,9 +87,14 @@ export default class PatientService {
           WHERE id = $3 RETURNING *`,
         [mergedPatient.first_name, mergedPatient.last_name, mergedPatient.id],
       );
+      this.logger.debug("Updated patient", { patient: rows[0] });
 
       await this.updateIdentifiers(mergedPatient.id!, patient.identifiers);
+      this.logger.debug("Updated identifiers", {
+        identifiers: patient.identifiers,
+      });
       await this._pg.query("COMMIT");
+      this.logger.debug("Committed transaction");
       const updatedPatient = this.maybeWithIdentifiers(rows[0]);
       return { ...updatedPatient, identifiers: mergedPatient.identifiers };
     } catch (err) {
@@ -101,16 +112,18 @@ export default class PatientService {
         "DELETE FROM patients_identifiers WHERE patient_id = $1",
         [id],
       );
+      this.logger.debug("Deleted identifiers", { patient_id: id });
       const { rowCount } = await this._pg.query(
         "DELETE FROM patients WHERE id = $1",
         [id],
       );
-
+      this.logger.debug("Deleted patient", { id });
       if (rowCount === 0) {
         throw new NotFoundError("Patient not found", { id });
       }
 
       await this._pg.query("COMMIT");
+      this.logger.debug("Committed transaction");
     } catch (err) {
       await this._pg.query("ROLLBACK");
       throw err;

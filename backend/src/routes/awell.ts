@@ -143,11 +143,24 @@ export default async function (fastify: FastifyInstance) {
 
   async function syncPatient(awellPatientId: string) {
     try {
+      fastify.log.debug({
+        msg: "Finding patient",
+        awellPatientId,
+      });
       const resp = await patientService.findByAwellPatientId(awellPatientId);
+      fastify.log.debug({
+        msg: "Patient found",
+        awellPatientId,
+        patient_id: resp.id,
+      });
       return resp.id;
     } catch (err) {
       if (err instanceof NotFoundError) {
         // create a new patient
+        fastify.log.debug({
+          msg: "Patient not found",
+          awellPatientId,
+        });
         const profile = await awellService.getPatientProfile(awellPatientId);
         const resp = await patientService.create({
           first_name: profile.first_name ?? "",
@@ -159,12 +172,26 @@ export default async function (fastify: FastifyInstance) {
             },
           ],
         });
+        fastify.log.debug({
+          msg: "Patient created",
+          awellPatientId,
+          patient_id: resp.id,
+        });
         return resp.id;
       } else if (
         err instanceof BadRequestError &&
         err.message.includes("duplicate key value violates unique constraint")
       ) {
+        fastify.log.debug({
+          msg: "Duplicate key error: Patient already exists",
+          awellPatientId,
+        });
         const resp = await patientService.findByAwellPatientId(awellPatientId);
+        fastify.log.debug({
+          msg: "Patient found",
+          awellPatientId,
+          patient_id: resp.id,
+        });
         return resp.id;
       } else {
         throw err;

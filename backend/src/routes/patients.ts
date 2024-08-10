@@ -13,6 +13,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
         const patient = await patientService.create(request.body);
         return reply.status(201).send(patient);
       } catch (err) {
+        fastify.log.error(err);
         return reply.status(400).send(err);
       }
     },
@@ -26,6 +27,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
         const patients = await patientService.findAll();
         return reply.send(patients);
       } catch (err) {
+        fastify.log.error(err);
         return reply.status(400).send(err);
       }
     },
@@ -42,6 +44,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
         const patient = await patientService.findById(request.params.id);
         return reply.send(patient);
       } catch (err) {
+        fastify.log.error(err);
         return reply.status(404).send(err);
       }
     },
@@ -64,6 +67,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
         });
         return reply.send(patient);
       } catch (err) {
+        fastify.log.error(err);
         return reply.status(400).send(err);
       }
     },
@@ -80,6 +84,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
         await patientService.delete(request.params.id);
         return reply.status(204).send();
       } catch (err) {
+        fastify.log.error(err);
         return reply.status(404).send(err);
       }
     },
@@ -98,6 +103,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
         );
         return reply.send(patient);
       } catch (err) {
+        fastify.log.error(err);
         return reply.status(404).send(err);
       }
     },

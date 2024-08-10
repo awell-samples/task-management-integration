@@ -5,9 +5,11 @@ import { FastifyInstance } from "fastify";
 
 export default class TaskService {
   private _pg: FastifyInstance["pg"];
+  private logger: FastifyInstance["log"];
 
   constructor(fastify: FastifyInstance) {
     this._pg = fastify.pg;
+    this.logger = fastify.log;
   }
 
   async create(task: Task) {
@@ -35,10 +37,16 @@ export default class TaskService {
         ],
       );
       const createdTask = rows[0];
+      this.logger.debug("Created task", { task: createdTask });
       await this.insertIdentifiers(createdTask.id, task.identifiers);
+      this.logger.debug("Inserted identifiers", {
+        identifiers: task.identifiers,
+      });
       await this._pg.query("COMMIT");
+      this.logger.debug("Committed transaction");
     } catch (err) {
       await this._pg.query("ROLLBACK");
+      this.logger.debug("Rolled back transaction");
       const error = err as unknown as Error;
       throw new BadRequestError(error.message, { task }, error.stack);
     }
@@ -53,6 +61,7 @@ export default class TaskService {
          GROUP BY t.id
          ORDER BY t.created_at DESC`,
     );
+    this.logger.debug("Returning tasks", { count: rows.length });
     return rows.map(this.maybeWithIdentifiers);
   }
 
@@ -93,7 +102,7 @@ export default class TaskService {
        ORDER BY t.created_at DESC`;
 
     const { rows } = await this._pg.query(query, patientId ? [patientId] : []);
-
+    this.logger.debug("Returning tasks", { count: rows.length });
     return rows.map((t) => this.populateTask(t));
   }
 
@@ -137,7 +146,7 @@ export default class TaskService {
     if (rows.length === 0) {
       throw new NotFoundError("Task not found", { id: taskId });
     }
-
+    this.logger.debug("Returning task", { id: taskId });
     return rows.map((t) => this.populateTask(t))[0];
   }
 
@@ -156,7 +165,7 @@ export default class TaskService {
     if (rows.length === 0) {
       throw new NotFoundError("Task not found", { activity_id: activityId });
     }
-
+    this.logger.debug("Returning task", { activity_id: activityId });
     const task = rows.map(this.maybeWithIdentifiers)[0];
     return task;
   }
@@ -176,7 +185,7 @@ export default class TaskService {
     if (rows.length === 0) {
       throw new NotFoundError("Task not found", { id });
     }
-
+    this.logger.debug("Returning task", { id });
     const task = rows.map(this.maybeWithIdentifiers)[0];
     return task;
   }
@@ -198,7 +207,7 @@ export default class TaskService {
         patient_id: patientId,
       });
     }
-
+    this.logger.debug("Returning tasks", { count: rows.length });
     return rows.map(this.maybeWithIdentifiers);
   }
 
@@ -231,14 +240,18 @@ export default class TaskService {
           mergedTask.id,
         ],
       );
-
+      this.logger.debug("Updated task", { task: rows[0] });
       await this.updateIdentifiers(mergedTask.id!, task.identifiers);
-
+      this.logger.debug("Updated identifiers", {
+        identifiers: task.identifiers,
+      });
       await this._pg.query("COMMIT");
+      this.logger.debug("Committed transaction");
       const updatedTask = rows.map(this.maybeWithIdentifiers)[0];
       return { ...updatedTask, identifiers: mergedTask.identifiers };
     } catch (err) {
       await this._pg.query("ROLLBACK");
+      this.logger.debug("Rolled back transaction");
       const error = err as unknown as Error;
       throw new BadRequestError(error.message, { task }, error.stack);
     }
@@ -249,28 +262,33 @@ export default class TaskService {
       `UPDATE tasks SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
       [task.status, task.id],
     );
+    this.logger.debug("Updated task status", {
+      id: task.id,
+      status: task.status,
+    });
   }
 
   async delete(id: string) {
     try {
       await this._pg.query("BEGIN");
-
+      this.logger.debug("Deleting task", { id });
       await this._pg.query("DELETE FROM tasks_identifiers WHERE task_id = $1", [
         id,
       ]);
-
+      this.logger.debug("Deleted identifiers", { task_id: id });
       const { rowCount } = await this._pg.query(
         "DELETE FROM tasks WHERE id = $1",
         [id],
       );
-
+      this.logger.debug("Deleted task", { id });
       if (rowCount === 0) {
         throw new NotFoundError("Task not found", { id });
       }
-
       await this._pg.query("COMMIT");
+      this.logger.debug("Committed transaction");
     } catch (err) {
       await this._pg.query("ROLLBACK");
+      this.logger.debug("Rolled back transaction");
       throw err;
     }
   }
@@ -294,12 +312,10 @@ export default class TaskService {
     const client = await this._pg.connect();
     try {
       await client.query("BEGIN");
-
       const { rows: currentIdentifiers } = await client.query(
         "SELECT system, value FROM tasks_identifiers WHERE task_id = $1",
         [taskId],
       );
-
       const identifiersToDelete = currentIdentifiers.filter(
         (current) =>
           !identifiers.some(
@@ -324,14 +340,19 @@ export default class TaskService {
           "DELETE FROM tasks_identifiers WHERE task_id = $1 AND system = $2 AND value = $3",
           [taskId, identifier.system, identifier.value],
         );
+        this.logger.debug("Deleted identifier", { identifier });
       }
 
       // Insert new identifiers
       await this.insertIdentifiers(taskId, identifiersToAdd);
-
+      this.logger.debug("Inserted identifiers", {
+        identifiers: identifiersToAdd,
+      });
       await client.query("COMMIT");
+      this.logger.debug("Committed transaction");
     } catch (err) {
       await client.query("ROLLBACK");
+      this.logger.debug("Rolled back transaction");
       throw err;
     } finally {
       client.release();

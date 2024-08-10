@@ -6,7 +6,9 @@ import { ErrorResponse } from "./error";
 import { configSchema } from "./config";
 
 const server = Fastify({
-  logger: true,
+  logger: {
+    level: "debug",
+  },
 });
 server.register(fastifyPostgres, {
   connectionString: process.env.DATABASE_URL,
@@ -21,7 +23,7 @@ void server.register(fastifyEnv, {
 routes.forEach((route) => server.register(route));
 
 server.get("/", async (request: FastifyRequest, reply: FastifyReply) => {
-  console.log({
+  request.log.info({
     msg: "request received",
     params: request.params,
     body: request.body,
@@ -30,7 +32,7 @@ server.get("/", async (request: FastifyRequest, reply: FastifyReply) => {
 });
 
 server.post("/", async (request: FastifyRequest, reply: FastifyReply) => {
-  console.log({
+  request.log.info({
     msg: "request received",
     params: request.params,
     body: request.body,
