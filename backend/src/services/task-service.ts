@@ -1,5 +1,11 @@
 import { BadRequestError, NotFoundError } from "../error";
-import { Identifier, Patient, type Task, type PopulatedTask } from "../types";
+import {
+  Identifier,
+  Patient,
+  type Task,
+  type PopulatedTask,
+  TaskStatus,
+} from "../types";
 import _ from "lodash";
 import { FastifyInstance } from "fastify";
 
@@ -258,9 +264,12 @@ export default class TaskService {
   }
 
   async updateStatus(task: Partial<Task>) {
+    if (!task.status || !Object.values(TaskStatus).includes(task.status)) {
+      throw new BadRequestError("Invalid task status", { status: task.status });
+    }
     await this._pg.query(
       `UPDATE tasks SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
-      [task.status, task.id],
+      [task.status.toString(), task.id],
     );
     this.logger.debug("Updated task status", {
       id: task.id,
