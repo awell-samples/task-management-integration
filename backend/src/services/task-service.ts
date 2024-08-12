@@ -12,11 +12,7 @@ import { FastifyInstance } from "fastify";
 export interface FindAllOptions {
   status?: string[];
   patient_id?: string;
-  populate?: {
-    assigned_by?: boolean;
-    assigned_to?: boolean;
-    patient?: boolean;
-  };
+  populate?: boolean;
 }
 
 export default class TaskService {
@@ -53,10 +49,13 @@ export default class TaskService {
         ],
       );
       const createdTask = rows[0];
-      this.logger.debug("Created task", { task: createdTask });
+      this.logger.debug({ msg: "Created task", data: { task: createdTask } });
       await this.insertIdentifiers(createdTask.id, task.identifiers);
-      this.logger.debug("Inserted identifiers", {
-        identifiers: task.identifiers,
+      this.logger.debug({
+        msg: "Inserted identifiers",
+        data: {
+          identifiers: task.identifiers,
+        },
       });
       await this._pg.query("COMMIT");
       this.logger.debug("Committed transaction");
@@ -70,19 +69,19 @@ export default class TaskService {
 
   async findAll(options: FindAllOptions = {}) {
     const { status, patient_id, populate } = options;
-    this.logger.debug("Finding tasks", { options });
+    this.logger.debug({ msg: "Finding tasks", data: { options } });
     let query = `
       SELECT 
         t.*,
-        ${populate?.assigned_by ? "json_build_object('id', ab.id, 'name', ab.name) as assigned_by," : ""}
-        ${populate?.assigned_to ? "json_build_object('id', at.id, 'name', at.name) as assigned_to," : ""}
-        ${populate?.patient ? "json_build_object('id', p.id, 'name', p.name) as patient," : ""}
+        ${populate ? "json_build_object('id', ab.id, 'name', ab.name) as assigned_by," : ""}
+        ${populate ? "json_build_object('id', at.id, 'name', at.name) as assigned_to," : ""}
+        ${populate ? "json_build_object('id', p.id, 'name', p.name) as patient," : ""}
         json_agg(json_build_object('system', ti.system, 'value', ti.value)) AS identifiers
       FROM tasks t
       LEFT JOIN tasks_identifiers ti ON t.id = ti.task_id
-      ${populate?.assigned_by ? "LEFT JOIN users ab ON t.assigned_by_user_id = ab.id" : ""}
-      ${populate?.assigned_to ? "LEFT JOIN users at ON t.assigned_to_user_id = at.id" : ""}
-      ${populate?.patient ? "LEFT JOIN patients p ON t.patient_id = p.id" : ""}
+      ${populate ? "LEFT JOIN users ab ON t.assigned_by_user_id = ab.id" : ""}
+      ${populate ? "LEFT JOIN users at ON t.assigned_to_user_id = at.id" : ""}
+      ${populate ? "LEFT JOIN patients p ON t.patient_id = p.id" : ""}
     `;
 
     const conditions = [];
@@ -108,7 +107,10 @@ export default class TaskService {
     query += ` GROUP BY t.id`;
 
     const result = await this._pg.query(query, params);
-    this.logger.debug("Returning tasks", { count: result.rows.length });
+    this.logger.debug({
+      msg: "Returning tasks",
+      data: { count: result.rows.length },
+    });
     return result.rows;
   }
 
@@ -152,7 +154,7 @@ export default class TaskService {
     if (rows.length === 0) {
       throw new NotFoundError("Task not found", { id: taskId });
     }
-    this.logger.debug("Returning task", { id: taskId });
+    this.logger.debug({ msg: "Returning task", data: { id: taskId } });
     return rows.map((t) => this.populateTask(t))[0];
   }
 
@@ -171,7 +173,10 @@ export default class TaskService {
     if (rows.length === 0) {
       throw new NotFoundError("Task not found", { activity_id: activityId });
     }
-    this.logger.debug("Returning task", { activity_id: activityId });
+    this.logger.debug({
+      msg: "Returning task",
+      data: { activity_id: activityId },
+    });
     const task = rows.map(this.maybeWithIdentifiers)[0];
     return task;
   }
@@ -191,7 +196,7 @@ export default class TaskService {
     if (rows.length === 0) {
       throw new NotFoundError("Task not found", { id });
     }
-    this.logger.debug("Returning task", { id });
+    this.logger.debug({ msg: "Returning task", data: { id, task: rows[0] } });
     const task = rows.map(this.maybeWithIdentifiers)[0];
     return task;
   }
@@ -213,7 +218,7 @@ export default class TaskService {
         patient_id: patientId,
       });
     }
-    this.logger.debug("Returning tasks", { count: rows.length });
+    this.logger.debug({ msg: "Returning tasks", data: { count: rows.length } });
     return rows.map(this.maybeWithIdentifiers);
   }
 
@@ -222,11 +227,12 @@ export default class TaskService {
     if (!currentTask) {
       throw new NotFoundError("Task not found", { id: task.id });
     }
+    const mergedTask = _.merge({}, currentTask, task);
+    this.logger.debug({ msg: "Merged task", data: { task: mergedTask } });
 
     try {
       await this._pg.query("BEGIN");
 
-      const mergedTask = _.merge({}, currentTask, task);
       const { rows } = await this._pg.query(
         `UPDATE tasks SET 
           title = $1, description = $2, due_at = $3, task_type = $4, task_data = $5, 
@@ -246,10 +252,13 @@ export default class TaskService {
           mergedTask.id,
         ],
       );
-      this.logger.debug("Updated task", { task: rows[0] });
+      this.logger.debug({ msg: "Updated task", data: { task: rows[0] } });
       await this.updateIdentifiers(mergedTask.id!, task.identifiers);
-      this.logger.debug("Updated identifiers", {
-        identifiers: task.identifiers,
+      this.logger.debug({
+        msg: "Updated identifiers",
+        data: {
+          identifiers: task.identifiers,
+        },
       });
       await this._pg.query("COMMIT");
       this.logger.debug("Committed transaction");
@@ -271,25 +280,28 @@ export default class TaskService {
       `UPDATE tasks SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
       [task.status.toString(), task.id],
     );
-    this.logger.debug("Updated task status", {
-      id: task.id,
-      status: task.status,
+    this.logger.debug({
+      msg: "Updated task status",
+      data: {
+        id: task.id,
+        status: task.status,
+      },
     });
   }
 
   async delete(id: string) {
     try {
       await this._pg.query("BEGIN");
-      this.logger.debug("Deleting task", { id });
+      this.logger.debug({ msg: "Deleting task", data: { id } });
       await this._pg.query("DELETE FROM tasks_identifiers WHERE task_id = $1", [
         id,
       ]);
-      this.logger.debug("Deleted identifiers", { task_id: id });
+      this.logger.debug({ msg: "Deleted identifiers", data: { task_id: id } });
       const { rowCount } = await this._pg.query(
         "DELETE FROM tasks WHERE id = $1",
         [id],
       );
-      this.logger.debug("Deleted task", { id });
+      this.logger.debug({ msg: "Deleted task", data: { id } });
       if (rowCount === 0) {
         throw new NotFoundError("Task not found", { id });
       }
@@ -349,13 +361,16 @@ export default class TaskService {
           "DELETE FROM tasks_identifiers WHERE task_id = $1 AND system = $2 AND value = $3",
           [taskId, identifier.system, identifier.value],
         );
-        this.logger.debug("Deleted identifier", { identifier });
+        this.logger.debug({ msg: "Deleted identifier", data: { identifier } });
       }
 
       // Insert new identifiers
       await this.insertIdentifiers(taskId, identifiersToAdd);
-      this.logger.debug("Inserted identifiers", {
-        identifiers: identifiersToAdd,
+      this.logger.debug({
+        msg: "Inserted identifiers",
+        data: {
+          identifiers: identifiersToAdd,
+        },
       });
       await client.query("COMMIT");
       this.logger.debug("Committed transaction");

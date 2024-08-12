@@ -40,7 +40,7 @@ server.post("/", async (request: FastifyRequest, reply: FastifyReply) => {
   return { message: "Hello, world!" };
 });
 
-server.setErrorHandler((error, request, reply) => {
+server.setErrorHandler((error, _request, reply) => {
   server.log.error(error);
   if (error.validation) {
     const response: ErrorResponse = {
@@ -61,6 +61,16 @@ server.setErrorHandler((error, request, reply) => {
     }
     reply.status(response.statusCode).send(response);
   }
+});
+
+server.addHook("preHandler", (request, _reply, done) => {
+  request.log.debug({
+    msg: "request received",
+    params: request.params,
+    query: request.query,
+    body: request.body,
+  });
+  done();
 });
 
 const start = async () => {

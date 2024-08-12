@@ -22,12 +22,15 @@ export default class PatientService {
         RETURNING *`,
         [patient.first_name, patient.last_name],
       );
-      this.logger.debug("Created patient", { patient: rows[0] });
+      this.logger.debug({ msg: "Created patient", data: { patient: rows[0] } });
 
       const createdPatient = rows[0];
       await this.insertIdentifiers(createdPatient.id, patient.identifiers);
-      this.logger.debug("Inserted identifiers", {
-        identifiers: patient.identifiers,
+      this.logger.debug({
+        msg: "Inserted identifiers",
+        data: {
+          identifiers: patient.identifiers,
+        },
       });
       await this._pg.query("COMMIT");
       this.logger.debug("Committed transaction");
@@ -48,7 +51,10 @@ export default class PatientService {
        GROUP BY p.id
        ORDER BY p.created_at DESC`,
     );
-    this.logger.debug("Returning patients", { count: rows.length });
+    this.logger.debug({
+      msg: "Returning patients",
+      data: { count: rows.length },
+    });
     return rows.map(this.maybeWithIdentifiers);
   }
 
@@ -63,7 +69,7 @@ export default class PatientService {
        LIMIT 1`,
       [id],
     );
-    this.logger.debug("Found patient", { id });
+    this.logger.debug({ msg: "Found patient", data: { id } });
     if (rows.length === 0) {
       throw new NotFoundError("Patient not found", { id });
     }
@@ -87,11 +93,14 @@ export default class PatientService {
           WHERE id = $3 RETURNING *`,
         [mergedPatient.first_name, mergedPatient.last_name, mergedPatient.id],
       );
-      this.logger.debug("Updated patient", { patient: rows[0] });
+      this.logger.debug({ msg: "Updated patient", data: { patient: rows[0] } });
 
       await this.updateIdentifiers(mergedPatient.id!, patient.identifiers);
-      this.logger.debug("Updated identifiers", {
-        identifiers: patient.identifiers,
+      this.logger.debug({
+        msg: "Updated identifiers",
+        data: {
+          identifiers: patient.identifiers,
+        },
       });
       await this._pg.query("COMMIT");
       this.logger.debug("Committed transaction");
@@ -112,12 +121,15 @@ export default class PatientService {
         "DELETE FROM patients_identifiers WHERE patient_id = $1",
         [id],
       );
-      this.logger.debug("Deleted identifiers", { patient_id: id });
+      this.logger.debug({
+        msg: "Deleted identifiers",
+        data: { patient_id: id },
+      });
       const { rowCount } = await this._pg.query(
         "DELETE FROM patients WHERE id = $1",
         [id],
       );
-      this.logger.debug("Deleted patient", { id });
+      this.logger.debug({ msg: "Deleted patient", data: { id } });
       if (rowCount === 0) {
         throw new NotFoundError("Patient not found", { id });
       }

@@ -19,16 +19,16 @@ export default async function (fastify: FastifyInstance) {
   // Get all tasks
   fastify.get<{
     Querystring: {
-      populated?: string;
+      populate?: string;
       status?: string;
       patient_id?: string;
     };
   }>("/tasks", async (request, reply) => {
-    const { status, populated, patient_id } = request.query;
+    const { status, populate, patient_id } = request.query;
     const rows = await taskService.findAll({
       ...(status && { status: status.split(",") }),
       ...(patient_id && { patient_id }),
-      ...(populated && { populated: populated === "true" }),
+      ...(populate && { populate: populate === "true" }),
     });
     return reply.send(rows);
   });

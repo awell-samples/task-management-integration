@@ -19,7 +19,7 @@ export default class UserService {
          RETURNING *`,
         [user.first_name, user.last_name, user.email],
       );
-      this.logger.debug("Created user", { user: rows[0] });
+      this.logger.debug({ msg: "Created user", data: { user: rows[0] } });
       return rows[0];
     } catch (err) {
       const error = err as unknown as Error;
@@ -31,7 +31,7 @@ export default class UserService {
     const { rows } = await this._pg.query(
       "SELECT * FROM users ORDER BY created_at DESC",
     );
-    this.logger.debug("Returning users", { count: rows.length });
+    this.logger.debug({ msg: "Returning users", data: { count: rows.length } });
     return rows;
   }
 
@@ -43,7 +43,7 @@ export default class UserService {
     if (rows.length === 0) {
       throw new NotFoundError("User not found", { id });
     }
-    this.logger.debug("Returning user", { user: rows[0] });
+    this.logger.debug({ msg: "Returning user", data: { user: rows[0] } });
     return rows[0];
   }
 
@@ -55,7 +55,7 @@ export default class UserService {
     if (rows.length === 0) {
       throw new NotFoundError("User not found", { email });
     }
-    this.logger.debug("Returning user", { user: rows[0] });
+    this.logger.debug({ msg: "Returning user", data: { user: rows[0] } });
     return rows[0];
   }
 
@@ -75,7 +75,7 @@ export default class UserService {
     if (rows.length === 0) {
       throw new NotFoundError("User not found", { id: user.id });
     }
-    this.logger.debug("Updated user", { user: rows[0] });
+    this.logger.debug({ msg: "Updated user", data: { user: rows[0] } });
     return rows[0];
   }
 
@@ -87,7 +87,7 @@ export default class UserService {
     if (rowCount === 0) {
       throw new NotFoundError("User not found", { id });
     }
-    this.logger.debug("Deleted user", { id });
+    this.logger.debug({ msg: "Deleted user", data: { id } });
   }
 
   async getUsersByEmailDomain(domain: string) {
@@ -96,7 +96,10 @@ export default class UserService {
         `SELECT * FROM users WHERE email LIKE $1`,
         [`%@${domain}`],
       );
-      this.logger.debug("Returning users", { count: rows.length });
+      this.logger.debug({
+        msg: "Returning users",
+        data: { count: rows.length },
+      });
       return rows;
     } catch (err) {
       const error = err as unknown as Error;
