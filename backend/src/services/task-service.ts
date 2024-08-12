@@ -73,9 +73,9 @@ export default class TaskService {
     let query = `
       SELECT 
         t.*,
-        ${populate ? "json_build_object('id', ab.id, 'name', ab.name) as assigned_by," : ""}
-        ${populate ? "json_build_object('id', at.id, 'name', at.name) as assigned_to," : ""}
-        ${populate ? "json_build_object('id', p.id, 'name', p.name) as patient," : ""}
+        ${populate ? "json_build_object('id', ab.id, 'first_name', ab.first_name, 'last_name', ab.last_name, 'email', ab.email) as assigned_by," : ""}
+        ${populate ? "json_build_object('id', at.id, 'first_name', at.first_name, 'last_name', at.last_name, 'email', at.email) as assigned_to," : ""}
+        ${populate ? "json_build_object('id', p.id, 'first_name', p.first_name, 'last_name', p.last_name) as patient," : ""}
         json_agg(json_build_object('system', ti.system, 'value', ti.value)) AS identifiers
       FROM tasks t
       LEFT JOIN tasks_identifiers ti ON t.id = ti.task_id
@@ -104,8 +104,8 @@ export default class TaskService {
       query += ` WHERE ${conditions.join(" AND ")}`;
     }
 
-    query += ` GROUP BY t.id`;
-
+    query += ` GROUP BY t.id ${populate ? ", ab.id, at.id, p.id" : ""}`;
+    this.logger.debug({ msg: "Query", data: { query, params } });
     const result = await this._pg.query(query, params);
     this.logger.debug({
       msg: "Returning tasks",
