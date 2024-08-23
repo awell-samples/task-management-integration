@@ -1,0 +1,16 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Docker Compose Up",
+      "type": "shell",
+      "command": "docker-compose up",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [],
+      "detail": "Runs Docker Compose to start the application and database."
+    }
+  ]
+}
