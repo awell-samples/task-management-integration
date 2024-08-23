@@ -4,6 +4,7 @@ on: workflow_dispatch
 
 jobs:
   migrate-up:
+    runs-on: ubuntu-latest
     steps:
       - name: Configure Docker
         run: gcloud auth configure-docker us-central1-docker.pkg.dev
