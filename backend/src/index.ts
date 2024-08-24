@@ -2,6 +2,7 @@ import Fastify, { FastifyReply, FastifyRequest } from "fastify";
 import fastifyPostgres from "@fastify/postgres";
 import fastifyEnv from "@fastify/env";
 import routes from "./routes";
+import prismaPlugin from "./prisma";
 import { ErrorResponse } from "./error";
 import { configSchema } from "./config";
 
@@ -19,6 +20,8 @@ void server.register(fastifyEnv, {
   schema: configSchema,
   dotenv: true,
 });
+
+void server.register(prismaPlugin);
 
 routes.forEach((route) => server.register(route));
 
