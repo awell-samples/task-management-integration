@@ -9,6 +9,9 @@ import { configSchema } from "./config";
 const server = Fastify({
   logger: {
     level: "debug",
+    transport: {
+      target: "pino-pretty",
+    },
   },
 });
 server.register(fastifyPostgres, {

@@ -97,7 +97,7 @@ export default async function (fastify: FastifyInstance) {
             status: TaskStatus.PENDING,
           };
           try {
-            await taskService.create(task);
+            await taskService.createPrisma(task);
             fastify.log.debug({
               msg: "Task created from activity creation",
               activity,

@@ -1,3 +1,5 @@
+export * from "./base";
+export * from "./comment";
 export * from "./task";
 export * from "./patient";
 export * from "./identifier";

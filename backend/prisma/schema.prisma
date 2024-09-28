@@ -1,134 +1,136 @@
-datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
-}
-
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
-enum CommentStatus {
-    active
-    resolved
-    deleted
-}
-
-enum TaskStatus {
-    pending
-    in_progress
-    completed
-    cancelled
-    stuck
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Comment {
-    id                                       String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-    text                                     String
-    created_by_user_id                       String?       @db.Uuid
-    updated_by_user_id                       String?       @db.Uuid
-    deleted_by_user_id                       String?       @db.Uuid
-    created_at                               DateTime      @default(now()) @db.Timestamp(6)
-    updated_at                               DateTime      @default(now()) @db.Timestamp(6)
-    deleted_at                               DateTime?     @db.Timestamp(6)
-    status                                   String        @default("active") @map("CommentStatus") @db.VarChar(50)
-    parent_id                                String?       @db.Uuid
-    users_comments_created_by_user_idTousers User?         @relation("comments_created_by_user_idTousers", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
-    users_comments_deleted_by_user_idTousers User?         @relation("comments_deleted_by_user_idTousers", fields: [deleted_by_user_id], references: [id], onUpdate: NoAction)
-    comments                                 Comment?      @relation("commentsTocomments", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-    other_comments                           Comment[]     @relation("commentsTocomments")
-    users_comments_updated_by_user_idTousers User?         @relation("comments_updated_by_user_idTousers", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
-    tasks_comments                           TaskComment[]
+  id                 String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  text               String
+  created_by_user_id String?       @db.Uuid
+  updated_by_user_id String?       @db.Uuid
+  deleted_by_user_id String?       @db.Uuid
+  created_at         DateTime      @default(now()) @db.Timestamp(6)
+  updated_at         DateTime      @default(now()) @db.Timestamp(6)
+  deleted_at         DateTime?     @db.Timestamp(6)
+  status             String        @default("active") @map("CommentStatus") @db.VarChar(50)
+  parent_id          String?       @db.Uuid
+  created_by         User?         @relation("comments_created_by_user_id", fields: [created_by_user_id], references: [id], onUpdate: NoAction)
+  deleted_by         User?         @relation("comments_deleted_by_user_id", fields: [deleted_by_user_id], references: [id], onUpdate: NoAction)
+  updated_by         User?         @relation("comments_updated_by_user_id", fields: [updated_by_user_id], references: [id], onUpdate: NoAction)
+  tasks_comments     TaskComment[]
 
-    @@map("comments")
+  @@map("comment")
 }
 
 model Patient {
-    id                   String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-    first_name           String
-    last_name            String
-    created_at           DateTime            @default(now()) @db.Timestamp(6)
-    updated_at           DateTime            @default(now()) @db.Timestamp(6)
-    patients_identifiers PatientIdentifier[]
-    tasks                Task[]
+  id                  String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  first_name          String
+  last_name           String
+  created_at          DateTime            @default(now()) @db.Timestamp(6)
+  updated_at          DateTime            @default(now()) @db.Timestamp(6)
+  patient_identifiers PatientIdentifier[]
+  task                task[]
 
-    @@map("patients")
+  @@map("patient")
 }
 
 model PatientIdentifier {
-    id         String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-    patient_id String  @db.Uuid
-    system     String
-    value      String
-    patients   Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id         String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  patient_id String  @db.Uuid
+  system     String
+  value      String
+  patient    Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-    @@unique([system, value], map: "patients_identifiers_system_value_unique")
-    @@map("patients_identifiers")
+  @@unique([system, value], map: "patient_identifiers_system_value_unique")
+  @@map("patient_identifiers")
 }
 
 model pgmigrations {
-    id     Int      @id @default(autoincrement())
-    name   String   @db.VarChar(255)
-    run_on DateTime @db.Timestamp(6)
+  id     Int      @id @default(autoincrement())
+  name   String   @db.VarChar(255)
+  run_on DateTime @db.Timestamp(6)
 }
 
-model Task {
-    id                                     String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-    title                                  String           @db.VarChar(255)
-    description                            String?
-    due_at                                 DateTime?        @db.Timestamp(6)
-    task_type                              String?          @db.VarChar(50)
-    task_data                              Json?
-    status                                 TaskStatus?      @default(pending)
-    priority                               String?          @db.VarChar(50)
-    assigned_by                            String?          @db.Uuid
-    completed_at                           DateTime?        @db.Timestamp(6)
-    created_at                             DateTime?        @default(now()) @db.Timestamp(6)
-    updated_at                             DateTime?        @default(now()) @db.Timestamp(6)
-    patient_id                             String?          @db.Uuid
-    assigned_to_user_id                    String?          @db.Uuid
-    assigned_by_user_id                    String?          @db.Uuid
-    users_tasks_assigned_by_user_idTousers User?            @relation("tasks_assigned_by_user_idTousers", fields: [assigned_by_user_id], references: [id], onUpdate: NoAction)
-    users_tasks_assigned_to_user_idTousers User?            @relation("tasks_assigned_to_user_idTousers", fields: [assigned_to_user_id], references: [id], onUpdate: NoAction)
-    patients                               Patient?         @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
-    tasks_comments                         TaskComment[]
-    tasks_identifiers                      TaskIdentifier[]
-
-    @@map("tasks")
+model TaskAssignment {
+  id                  String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  task_id             String  @db.Uuid
+  assigned_by_user_id String? @db.Uuid
+  assigned_to_user_id String? @db.Uuid
+  assigned_by_user    User?   @relation("task_assigned_by", fields: [assigned_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assigned_to_user    User?   @relation("task_assigned_to", fields: [assigned_to_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task                task    @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model TaskComment {
-    id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-    task_id    String?  @db.Uuid
-    comment_id String?  @db.Uuid
-    comments   Comment? @relation(fields: [comment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-    tasks      Task?    @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "tasks_comments_task_id_fkey")
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  task_id    String?  @db.Uuid
+  comment_id String?  @db.Uuid
+  comment    Comment? @relation(fields: [comment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  task       task?    @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "tasks_comments_task_id_fkey")
 
-    @@map("tasks_comments")
+  @@map("task_comments")
 }
 
 model TaskIdentifier {
-    id      String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-    task_id String @db.Uuid
-    system  String
-    value   String
-    tasks   Task   @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id      String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  task_id String @db.Uuid
+  system  String
+  value   String
+  tasks   task   @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-    @@unique([system, value], map: "tasks_identifiers_system_value_unique")
-    @@map("tasks_identifiers")
+  @@unique([system, value], map: "task_identifiers_system_value_unique")
+  @@map("task_identifiers")
 }
 
 model User {
-    id                                          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-    first_name                                  String
-    last_name                                   String
-    email                                       String    @unique
-    created_at                                  DateTime  @default(now()) @db.Timestamp(6)
-    updated_at                                  DateTime  @default(now()) @db.Timestamp(6)
-    comments_comments_created_by_user_idTousers Comment[] @relation("comments_created_by_user_idTousers")
-    comments_comments_deleted_by_user_idTousers Comment[] @relation("comments_deleted_by_user_idTousers")
-    comments_comments_updated_by_user_idTousers Comment[] @relation("comments_updated_by_user_idTousers")
-    tasks_tasks_assigned_by_user_idTousers      Task[]    @relation("tasks_assigned_by_user_idTousers")
-    tasks_tasks_assigned_to_user_idTousers      Task[]    @relation("tasks_assigned_to_user_idTousers")
+  id                  String           @id @unique @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  first_name          String
+  last_name           String
+  email               String           @unique
+  created_at          DateTime         @default(now()) @db.Timestamp(6)
+  updated_at          DateTime         @default(now()) @db.Timestamp(6)
+  tasks_assigned_by   TaskAssignment[] @relation("task_assigned_by")
+  tasks_assigned_to   TaskAssignment[] @relation("task_assigned_to")
+  comments_created_by Comment[]        @relation("comments_created_by_user_id")
+  comments_deleted_by Comment[]        @relation("comments_deleted_by_user_id")
+  comments_updated_by Comment[]        @relation("comments_updated_by_user_id")
 
-    @@map("users")
+  @@map("user")
+}
+
+model task {
+  id               String           @id(map: "task_pkey") @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  title            String           @db.VarChar(255)
+  description      String?
+  due_at           DateTime?        @db.Timestamp(6)
+  task_type        String?          @db.VarChar(50)
+  task_data        Json?
+  status           TaskStatus?      @default(pending)
+  priority         String?          @db.VarChar(50)
+  completed_at     DateTime?        @db.Timestamp(6)
+  created_at       DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?        @default(now()) @db.Timestamp(6)
+  patient_id       String?          @db.Uuid
+  task_assignments TaskAssignment[]
+  patient          Patient?         @relation(fields: [patient_id], references: [id], onUpdate: NoAction, map: "task_patient_id_fkey")
+  comments         TaskComment[]
+  task_identifiers TaskIdentifier[]
+}
+
+enum CommentStatus {
+  active
+  resolved
+  deleted
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  completed
+  cancelled
+  stuck
 }
