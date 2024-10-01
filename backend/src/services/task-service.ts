@@ -5,9 +5,12 @@ import {
   type Task,
   type PopulatedTask,
   TaskStatus,
+  Ephemeral,
 } from "../types";
 import _ from "lodash";
 import { FastifyInstance } from "fastify";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 
 export interface FindAllOptions {
   status?: string[];
@@ -18,53 +21,102 @@ export interface FindAllOptions {
 export default class TaskService {
   private _pg: FastifyInstance["pg"];
   private logger: FastifyInstance["log"];
+  private prisma: FastifyInstance["prisma"];
 
   constructor(fastify: FastifyInstance) {
     this._pg = fastify.pg;
     this.logger = fastify.log;
+    this.prisma = fastify.prisma;
   }
 
-  async create(task: Task) {
+  async createPrisma(task: Ephemeral<Task>) {
     try {
-      await this._pg.query("BEGIN");
-      const { rows } = await this._pg.query(
-        `INSERT INTO tasks (
-          id, title, description, due_at, task_type, task_data, status, priority, 
-          patient_id, assigned_to_user_id, assigned_by_user_id, created_at, updated_at
-        ) VALUES (
-          uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7,
-          $8, $9, $10, NOW(), NOW()
-        ) RETURNING *`,
-        [
-          task.title,
-          task.description,
-          task.due_at,
-          task.task_type,
-          JSON.stringify(task.task_data),
-          task.status?.toString(),
-          task.priority,
-          task.patient_id,
-          task.assigned_to_user_id,
-          task.assigned_by_user_id,
-        ],
-      );
-      const createdTask = rows[0];
-      this.logger.debug({ msg: "Created task", data: { task: createdTask } });
-      await this.insertIdentifiers(createdTask.id, task.identifiers);
-      this.logger.debug({
-        msg: "Inserted identifiers",
-        data: {
-          identifiers: task.identifiers,
-        },
+      const createdTask = await this.prisma.$transaction(async (tx) => {
+        const t = await tx.task.create({
+          data: {
+            title: task.title,
+            description: task.description,
+            due_at: task.due_at,
+            task_type: task.task_type,
+            task_data: JSON.stringify(task.task_data),
+            status: task.status,
+            priority: task.priority,
+            patient_id: task.patient_id,
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+        });
+        if (task.identifiers && task.identifiers.length > 0) {
+          await tx.taskIdentifier.create({
+            data: {
+              task_id: t.id,
+              system: task.identifiers![0].system,
+              value: task.identifiers![0].value,
+            },
+          });
+        }
+        await tx.taskAssignment.create({
+          data: {
+            task_id: t.id,
+            assigned_by_user_id: task.assigned_by_user_id,
+            assigned_to_user_id: task.assigned_to_user_id,
+          },
+        });
+
+        return t;
       });
-      await this._pg.query("COMMIT");
-      this.logger.debug("Committed transaction");
+      this.logger.debug({ msg: "Created task", data: { task: createdTask } });
+
+      return createdTask;
     } catch (err) {
-      await this._pg.query("ROLLBACK");
-      this.logger.debug("Rolled back transaction");
-      const error = err as unknown as Error;
-      throw new BadRequestError(error.message, { task }, error.stack);
+      this.logger.error({ msg: "Error creating task", err });
+      if (err instanceof PrismaClientKnownRequestError) {
+        console.log(err.meta);
+        throw new BadRequestError(err.message, { task }, err.stack);
+      }
+      throw err;
     }
+  }
+
+  async findAllPrisma(options: FindAllOptions = {}) {
+    const { status, patient_id, populate } = options;
+    const queryOptions: Prisma.taskWhereInput[] = [];
+    if (!_.isNil(status)) {
+      queryOptions.push({ status: { in: status.map((s) => s as TaskStatus) } });
+    }
+    if (!_.isNil(patient_id)) {
+      queryOptions.push({ patient_id: { equals: patient_id } });
+    }
+    this.logger.debug({ msg: "Finding tasks", data: { options } });
+    const tasks = await this.prisma.task.findMany({
+      where: {
+        AND: queryOptions,
+      },
+      include: {
+        task_identifiers: {
+          select: {
+            system: true,
+            value: true,
+          },
+        },
+        task_assignments: {
+          include: {
+            assigned_by_user: true,
+            assigned_to_user: true,
+          },
+        },
+        comments: {
+          include: {
+            comment: true,
+          },
+        },
+      },
+    });
+    this.logger.debug({
+      msg: "Returning tasks",
+      data: { count: tasks.length },
+    });
+    return tasks;
   }
 
   async findAll(options: FindAllOptions = {}) {

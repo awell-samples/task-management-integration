@@ -11,7 +11,7 @@ export default async function (fastify: FastifyInstance) {
     { schema: CreateTaskSchema },
     async (request, reply) => {
       const taskToCreate: Task = request.body;
-      const task = await taskService.create(taskToCreate);
+      const task = await taskService.createPrisma(taskToCreate);
       return reply.send(task);
     },
   );
@@ -25,7 +25,7 @@ export default async function (fastify: FastifyInstance) {
     };
   }>("/tasks", async (request, reply) => {
     const { status, populate, patient_id } = request.query;
-    const rows = await taskService.findAll({
+    const rows = await taskService.findAllPrisma({
       ...(status && { status: status.split(",") }),
       ...(patient_id && { patient_id }),
       ...(populate && { populate: populate === "true" }),

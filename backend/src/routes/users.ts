@@ -13,18 +13,10 @@ export default async function userRoutes(fastify: FastifyInstance) {
   });
 
   // Get all users
-  fastify.get<{ Querystring: { email?: string } }>(
-    "/users",
-    async (request, reply) => {
-      if (request.query?.email) {
-        const user = await userService.findByEmail(request.query.email);
-        return reply.send(user);
-      } else {
-        const users = await userService.findAll();
-        reply.send(users);
-      }
-    },
-  );
+  fastify.get("/users", async (request, reply) => {
+    const users = await userService.findAll();
+    reply.send(users);
+  });
 
   // Get all users
   fastify.get<{ Querystring: { email: string } }>(
