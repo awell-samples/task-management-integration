@@ -1,10 +1,11 @@
-import Fastify, { FastifyReply, FastifyRequest } from "fastify";
+import "./types/fastify";
+import Fastify from "fastify";
 import fastifyPostgres from "@fastify/postgres";
 import fastifyEnv from "@fastify/env";
 import routes from "./routes";
-import prismaPlugin from "./prisma";
-import { ErrorResponse } from "./error";
+import { prismaPlugin, servicesPlugin } from "./plugins";
 import { configSchema } from "./config";
+import { errorHandler, authHandler, userContextHandler } from "./hooks";
 
 const server = Fastify({
   logger: {
@@ -14,70 +15,22 @@ const server = Fastify({
     },
   },
 });
+
 server.register(fastifyPostgres, {
   connectionString: process.env.DATABASE_URL,
 });
-
 void server.register(fastifyEnv, {
   confKey: "config",
   schema: configSchema,
   dotenv: true,
 });
-
 void server.register(prismaPlugin);
+void server.register(servicesPlugin);
+server.setErrorHandler(errorHandler);
+server.addHook("onRequest", userContextHandler);
+server.addHook("onRequest", authHandler);
 
 routes.forEach((route) => server.register(route));
-
-server.get("/", async (request: FastifyRequest, reply: FastifyReply) => {
-  request.log.info({
-    msg: "request received",
-    params: request.params,
-    body: request.body,
-  });
-  return { message: "Hello, world!" };
-});
-
-server.post("/", async (request: FastifyRequest, reply: FastifyReply) => {
-  request.log.info({
-    msg: "request received",
-    params: request.params,
-    body: request.body,
-  });
-  return { message: "Hello, world!" };
-});
-
-server.setErrorHandler((error, _request, reply) => {
-  server.log.error(error);
-  if (error.validation) {
-    const response: ErrorResponse = {
-      message: "Validation error",
-      statusCode: 400,
-      data: error.validation,
-    };
-    reply.status(response.statusCode).send(response);
-  } else {
-    const response: ErrorResponse = {
-      message: error.message,
-      statusCode: error.statusCode || 500,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: (error as any).data,
-    };
-    if (process.env.NODE_ENV !== "production") {
-      response.stack = error.stack;
-    }
-    reply.status(response.statusCode).send(response);
-  }
-});
-
-server.addHook("preHandler", (request, _reply, done) => {
-  request.log.debug({
-    msg: "request received",
-    params: request.params,
-    query: request.query,
-    body: request.body,
-  });
-  done();
-});
 
 const start = async () => {
   const port = Number(process.env.PORT || 3001);

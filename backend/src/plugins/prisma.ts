@@ -2,12 +2,6 @@ import fp from "fastify-plugin";
 import { FastifyPluginAsync } from "fastify";
 import { Prisma, PrismaClient } from "@prisma/client";
 
-declare module "fastify" {
-  interface FastifyInstance {
-    prisma: PrismaClient;
-  }
-}
-
 const taskExtension = Prisma.defineExtension({
   name: "taskData",
   result: {

@@ -5,3 +5,4 @@ export * from "./patient";
 export * from "./identifier";
 export * from "./user";
 export * from "./valid";
+export * from "./fastify";
