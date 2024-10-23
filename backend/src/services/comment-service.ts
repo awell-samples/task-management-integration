@@ -1,18 +1,14 @@
-import { BadRequestError, NotFoundError } from "../error";
-import { Comment, Ephemeral } from "../types";
-import { FastifyInstance } from "fastify";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Inject, Service } from "typedi";
+import { Comment, Ephemeral, Valid } from "../types";
+import { PrismaClient } from "@prisma/client";
+import { FastifyBaseLogger } from "fastify";
 
+@Service()
 export default class CommentService {
-  private _pg: FastifyInstance["pg"];
-  private logger: FastifyInstance["log"];
-  private prisma: FastifyInstance["prisma"];
-
-  constructor(fastify: FastifyInstance) {
-    this._pg = fastify.pg;
-    this.logger = fastify.log;
-    this.prisma = fastify.prisma;
-  }
+  constructor(
+    @Inject("prisma") private prisma: PrismaClient,
+    @Inject("logger") private logger: FastifyBaseLogger,
+  ) {}
 
   async create(taskId: string, comment: Ephemeral<Comment>) {
     const createdComment = await this.prisma.$transaction(async (tx) => {
@@ -53,143 +49,64 @@ export default class CommentService {
   }
 
   async findById(id: string) {
-    const { rows } = await this._pg.query(
-      "SELECT * FROM comments WHERE id = $1 AND deleted_at IS NULL LIMIT 1",
-      [id],
-    );
-    this.logger.debug({ msg: "Found comment", data: { id } });
-    if (rows.length === 0) {
-      throw new NotFoundError("Comment not found", { id });
-    }
-    return rows[0];
-  }
-
-  async findByCommentId(commentId: string) {
-    const { rows } = await this._pg.query(
-      `SELECT c.*
-       FROM comments c
-       WHERE (c.id = $1 OR c.parent_id = $1) AND c.deleted_at IS NULL
-       ORDER BY c.created_at ASC`,
-      [commentId],
-    );
-    this.logger.debug({
-      msg: "Returning comments for comment",
-      data: { commentId, count: rows.length },
+    const comment = await this.prisma.comment.findUnique({
+      where: {
+        id,
+      },
     });
-    return rows;
+    this.logger.debug({ msg: "Found comment", data: { id } });
+    return comment;
   }
 
-  async update(comment: Partial<Comment>) {
-    const currentComment = await this.findById(comment.id!);
-    if (!currentComment) {
-      throw new NotFoundError("Comment not found", { id: comment.id });
-    }
+  async findRelatedComments(commentId: string) {
+    const comments = await this.prisma.comment.findMany({
+      where: {
+        OR: [
+          {
+            id: commentId,
+          },
+          {
+            parent_id: commentId,
+          },
+        ],
+      },
+    });
+    this.logger.debug({
+      msg: "Found related comments",
+      data: { commentId, count: comments.length },
+    });
+    return comments;
+  }
 
-    const { rows } = await this._pg.query(
-      `UPDATE comments SET 
-        text = $1, updated_by_user_id = $2, updated_at = NOW(), status = $3
-        WHERE id = $4 AND deleted_at IS NULL RETURNING *`,
-      [
-        comment.text,
-        comment.updated_by_user_id,
-        comment.status || "active",
-        comment.id,
-      ],
-    );
-
-    if (rows.length === 0) {
-      throw new NotFoundError("Comment not found", { id: comment.id });
-    }
-    this.logger.debug({ msg: "Updated comment", data: { comment: rows[0] } });
-    return rows[0];
+  async update(comment: Valid<Partial<Comment>>) {
+    const updatedComment = await this.prisma.comment.update({
+      where: {
+        id: comment.id,
+      },
+      data: {
+        text: comment.text,
+        updated_at: new Date(),
+        updated_by_user_id: comment.updated_by_user_id,
+        status: comment.status || "active",
+      },
+    });
+    this.logger.debug({
+      msg: "Updated comment",
+      data: { comment: updatedComment },
+    });
+    return updatedComment;
   }
 
   async delete(id: string, deleted_by_user_id: string) {
-    const { rowCount } = await this._pg.query(
-      "UPDATE comments SET deleted_at = NOW(), deleted_by_user_id = $2 WHERE id = $1",
-      [id, deleted_by_user_id],
-    );
-    if (rowCount === 0) {
-      throw new NotFoundError("Comment not found", { id });
-    }
+    await this.prisma.comment.update({
+      where: {
+        id,
+      },
+      data: {
+        deleted_at: new Date(),
+        deleted_by_user_id,
+      },
+    });
     this.logger.debug({ msg: "Deleted comment", data: { id } });
-  }
-
-  async deleteByTaskId(taskId: string) {
-    try {
-      await this._pg.query("BEGIN");
-
-      await this._pg.query("DELETE FROM tasks_comments WHERE task_id = $1", [
-        taskId,
-      ]);
-      this.logger.debug({
-        msg: "Deleted comments for task",
-        data: { task_id: taskId },
-      });
-
-      const { rowCount } = await this._pg.query(
-        "UPDATE comments SET deleted_at = NOW() WHERE id IN (SELECT comment_id FROM tasks_comments WHERE task_id = $1)",
-        [taskId],
-      );
-      this.logger.debug({
-        msg: "Deleted comments",
-        data: { count: rowCount },
-      });
-
-      await this._pg.query("COMMIT");
-      this.logger.debug("Committed transaction");
-    } catch (err) {
-      await this._pg.query("ROLLBACK");
-      throw err;
-    }
-  }
-
-  async associateTask(taskId: string, commentId: string) {
-    try {
-      await this._pg.query("BEGIN");
-
-      await this._pg.query(
-        `INSERT INTO tasks_comments (task_id, comment_id) VALUES ($1, $2)`,
-        [taskId, commentId],
-      );
-      this.logger.debug({
-        msg: "Associated task with comment",
-        data: { taskId, commentId },
-      });
-
-      await this._pg.query("COMMIT");
-      this.logger.debug("Committed transaction");
-    } catch (err) {
-      await this._pg.query("ROLLBACK");
-      throw err;
-    }
-  }
-
-  async disassociateTask(taskId: string, commentId: string) {
-    try {
-      await this._pg.query("BEGIN");
-
-      const { rowCount } = await this._pg.query(
-        `DELETE FROM tasks_comments WHERE task_id = $1 AND comment_id = $2`,
-        [taskId, commentId],
-      );
-      this.logger.debug({
-        msg: "Disassociated task from comment",
-        data: { taskId, commentId },
-      });
-
-      if (rowCount === 0) {
-        throw new NotFoundError("Association not found", {
-          taskId,
-          commentId,
-        });
-      }
-
-      await this._pg.query("COMMIT");
-      this.logger.debug("Committed transaction");
-    } catch (err) {
-      await this._pg.query("ROLLBACK");
-      throw err;
-    }
   }
 }

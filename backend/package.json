@@ -25,7 +25,9 @@
     "node-pg-migrate": "^7.6.1",
     "pg": "^8.12.0",
     "pino": "^9.3.2",
-    "stytch": "^11.5.0"
+    "reflect-metadata": "^0.2.2",
+    "stytch": "^11.5.0",
+    "typedi": "^0.10.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",

@@ -1,9 +1,10 @@
+import "reflect-metadata";
 import "./types/fastify";
 import Fastify from "fastify";
 import fastifyPostgres from "@fastify/postgres";
 import fastifyEnv from "@fastify/env";
 import routes from "./routes";
-import { prismaPlugin, servicesPlugin } from "./plugins";
+import { servicesPlugin } from "./plugins";
 import { configSchema } from "./config";
 import { errorHandler, authHandler, userContextHandler } from "./hooks";
 
@@ -24,7 +25,6 @@ void server.register(fastifyEnv, {
   schema: configSchema,
   dotenv: true,
 });
-void server.register(prismaPlugin);
 void server.register(servicesPlugin);
 server.setErrorHandler(errorHandler);
 server.addHook("onRequest", userContextHandler);

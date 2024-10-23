@@ -1,10 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { Task, TaskStatus } from "../types";
-import TaskService from "../services/task-service";
 import { Type, type Static } from "@sinclair/typebox";
-import PatientService from "../services/patient-service";
 import { BadRequestError, NotFoundError } from "../error";
-import AwellService from "../services/awell-service";
 
 const activityWebhookBody = Type.Object({
   activity: Type.Object({
@@ -57,10 +54,6 @@ const activityWebhookSchema = {
 };
 
 export default async function (fastify: FastifyInstance) {
-  const taskService = new TaskService(fastify);
-  const patientService = new PatientService(fastify);
-  const awellService = new AwellService(fastify);
-
   fastify.post<{ Body: Static<typeof activityWebhookBody> }>(
     "/awell",
     { schema: activityWebhookSchema },
@@ -90,14 +83,14 @@ export default async function (fastify: FastifyInstance) {
             },
             identifiers: [
               {
-                system: "https://awellhealth.com",
+                system: "https://awellhealth.com/activity",
                 value: activity.id,
               },
             ],
             status: TaskStatus.PENDING,
           };
           try {
-            await taskService.createPrisma(task);
+            await fastify.services.task.create(task);
             fastify.log.debug({
               msg: "Task created from activity creation",
               activity,
@@ -115,17 +108,19 @@ export default async function (fastify: FastifyInstance) {
         } else if (event_type === "activity.completed") {
           // find the task and mark it as done
           try {
-            const task = await taskService.findByAwellActivityId(activity.id);
+            const task = await fastify.services.task.findByAwellActivityId(
+              activity.id,
+            );
             fastify.log.debug({
               msg: "Task found using activity ID",
               activity,
               pathway,
               task,
             });
-            await taskService.updateStatus({
-              id: task.id,
-              status: TaskStatus.COMPLETED,
-            });
+            // await fastify.services.task.updateStatus({
+            //   id: task.id,
+            //   status: TaskStatus.COMPLETED,
+            // });
             fastify.log.debug({
               msg: "Task completed from activity completion",
               activity,
@@ -152,7 +147,8 @@ export default async function (fastify: FastifyInstance) {
         msg: "Finding patient",
         awellPatientId,
       });
-      const resp = await patientService.findByAwellPatientId(awellPatientId);
+      const resp =
+        await fastify.services.patient.findByAwellPatientId(awellPatientId);
       fastify.log.debug({
         msg: "Patient found",
         awellPatientId,
@@ -166,13 +162,14 @@ export default async function (fastify: FastifyInstance) {
           msg: "Patient not found",
           awellPatientId,
         });
-        const profile = await awellService.getPatientProfile(awellPatientId);
-        const resp = await patientService.create({
+        const profile =
+          await fastify.services.awell.getPatientProfile(awellPatientId);
+        const resp = await fastify.services.patient.create({
           first_name: profile.first_name ?? "",
           last_name: profile.last_name ?? "",
           identifiers: [
             {
-              system: "https://awellhealth.com",
+              system: "https://awellhealth.com/patient",
               value: awellPatientId,
             },
           ],
@@ -191,7 +188,8 @@ export default async function (fastify: FastifyInstance) {
           msg: "Duplicate key error: Patient already exists",
           awellPatientId,
         });
-        const resp = await patientService.findByAwellPatientId(awellPatientId);
+        const resp =
+          await fastify.services.patient.findByAwellPatientId(awellPatientId);
         fastify.log.debug({
           msg: "Patient found",
           awellPatientId,

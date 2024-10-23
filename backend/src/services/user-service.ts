@@ -1,18 +1,16 @@
 import { isNil } from "lodash";
 import { BadRequestError, NotFoundError } from "../error";
 import { User } from "../types";
-import { FastifyInstance } from "fastify";
+import { FastifyBaseLogger } from "fastify";
+import { Inject, Service } from "typedi";
+import { PrismaClient } from "@prisma/client";
 
+@Service()
 export default class UserService {
-  private _pg: FastifyInstance["pg"];
-  private logger: FastifyInstance["log"];
-  private prisma: FastifyInstance["prisma"];
-
-  constructor(fastify: FastifyInstance) {
-    this._pg = fastify.pg;
-    this.logger = fastify.log;
-    this.prisma = fastify.prisma;
-  }
+  constructor(
+    @Inject("prisma") private prisma: PrismaClient,
+    @Inject("logger") private logger: FastifyBaseLogger,
+  ) {}
 
   async create(user: User) {
     this.logger.debug({ msg: "Creating user", data: { user } });

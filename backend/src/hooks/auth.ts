@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isNil } from "lodash";
-import { getStytchClient } from "../services/auth-service";
-import { ClientError } from "stytch";
+import { ClientError, Client } from "stytch";
+import Container from "typedi";
 
 export async function authHandler(
   this: FastifyInstance,
@@ -27,8 +27,9 @@ export async function authHandler(
     });
   }
   const accessToken = request.headers.authorization.split(" ")[1];
+  const stytchClient = Container.get<Client>("stytch");
   try {
-    const resp = await getStytchClient().m2m.authenticateToken({
+    const resp = await stytchClient.m2m.authenticateToken({
       access_token: accessToken,
     });
     request.context.tokenResponse = resp;
