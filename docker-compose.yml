@@ -29,6 +29,8 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/awell
       NODE_ENV: development
+      PRETTY_LOGS: true
+      LOG_LEVEL: debug
     env_file:
       - ./backend/.env
 

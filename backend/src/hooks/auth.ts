@@ -8,7 +8,11 @@ export async function authHandler(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  if (request.url === "/" || request.url === "/health") {
+  if (
+    request.url === "/" ||
+    request.url === "/health" ||
+    request.url.startsWith("/awell")
+  ) {
     return;
   }
 

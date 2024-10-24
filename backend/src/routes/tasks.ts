@@ -90,6 +90,31 @@ export default async function (fastify: FastifyInstance) {
     },
   );
 
+  fastify.put<{ Params: { taskId: string; userId: string } }>(
+    "/tasks/:taskId/assign/:userId",
+    async (request, reply) => {
+      const { taskId, userId } = request.params;
+      const assignByUserId = request.context.user.id as string;
+      const task = await fastify.services.task.assignTaskToUser(taskId, {
+        assigned_to_user_id: userId,
+        assigned_by_user_id: assignByUserId,
+      });
+      return reply.send(task);
+    },
+  );
+
+  fastify.delete<{ Params: { taskId: string; userId: string } }>(
+    "/tasks/:taskId/assign/:userId",
+    async (request, reply) => {
+      const { taskId, userId } = request.params;
+      const task = await fastify.services.task.removeTaskAssignment(
+        taskId,
+        userId,
+      );
+      return reply.send(task);
+    },
+  );
+
   // Delete a task
   fastify.delete<{ Params: { id: string } }>(
     "/tasks/:id",

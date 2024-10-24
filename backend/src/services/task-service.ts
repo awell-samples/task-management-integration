@@ -18,12 +18,40 @@ export interface FindAllOptions {
   populate?: boolean;
 }
 
+const extendedPrisma = (prisma: PrismaClient) =>
+  prisma.$extends({
+    result: {
+      task: {
+        task_data: {
+          needs: { task_data: true, id: true },
+          compute(task) {
+            if (typeof task.task_data === "string") {
+              try {
+                return JSON.parse(task.task_data);
+              } catch (error) {
+                console.error(
+                  `Failed to parse task_data for task ID ${task.id}`,
+                  error,
+                );
+                return task.task_data;
+              }
+            }
+            return task.task_data;
+          },
+        },
+      },
+    },
+  });
+
 @Service()
 export default class TaskService {
+  extendedPrisma;
   constructor(
     @Inject("prisma") private prisma: PrismaClient,
     @Inject("logger") private logger: FastifyBaseLogger,
-  ) {}
+  ) {
+    this.extendedPrisma = extendedPrisma(prisma);
+  }
 
   async create(task: Ephemeral<Task>) {
     const task_identifiers: TaskIdentifier[] = [];
@@ -112,7 +140,7 @@ export default class TaskService {
       });
     }
     this.logger.debug({ msg: "Finding tasks", data: { options } });
-    const tasks = await this.prisma.task.findMany({
+    const tasks = await this.extendedPrisma.task.findMany({
       where: {
         AND: queryOptions,
       },
@@ -125,7 +153,7 @@ export default class TaskService {
         },
         task_assignments: Boolean(populate)
           ? {
-              include: {
+              select: {
                 assigned_by_user: true,
                 assigned_to_user: true,
               },
@@ -133,11 +161,23 @@ export default class TaskService {
           : false,
         comments: Boolean(populate)
           ? {
-              include: {
+              select: {
                 comment: true,
               },
             }
           : false,
+        patient: {
+          select: {
+            first_name: true,
+            last_name: true,
+            patient_identifiers: {
+              select: {
+                system: true,
+                value: true,
+              },
+            },
+          },
+        },
       },
     });
     this.logger.debug({
@@ -148,7 +188,7 @@ export default class TaskService {
   }
 
   async findByAwellActivityId(activityId: string) {
-    const task = await this.prisma.$transaction(async (tx) => {
+    const task = await this.extendedPrisma.$transaction(async (tx) => {
       const identifier = await tx.taskIdentifier.findUnique({
         where: {
           system_value: {
@@ -176,6 +216,18 @@ export default class TaskService {
                   },
                 },
               },
+              patient: {
+                select: {
+                  first_name: true,
+                  last_name: true,
+                  patient_identifiers: {
+                    select: {
+                      system: true,
+                      value: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
@@ -190,13 +242,18 @@ export default class TaskService {
   }
 
   async findById(id: string) {
-    const task = await this.prisma.task.findUnique({
+    const task = await this.extendedPrisma.task.findUnique({
       where: {
         id,
       },
       include: {
         task_identifiers: true,
-        task_assignments: true,
+        task_assignments: {
+          select: {
+            assigned_to_user: true,
+            assigned_by_user: true,
+          },
+        },
         comments: {
           include: { comment: true },
         },
@@ -210,7 +267,7 @@ export default class TaskService {
   }
 
   async findByPatientId(patientId: string) {
-    const tasks = await this.prisma.task.findMany({
+    const tasks = await this.extendedPrisma.task.findMany({
       where: {
         patient_id: patientId,
       },
@@ -288,6 +345,79 @@ export default class TaskService {
       },
     });
     return updatedTask;
+  }
+
+  async assignTaskToUser(
+    taskId: string,
+    assignment: Pick<
+      TaskAssignment,
+      "assigned_to_user_id" | "assigned_by_user_id"
+    >,
+  ) {
+    // right now we're only going to allow tasks to be assigned to one person. In the future,
+    // we may allow multiple assignments for a single task.
+    const task = await this.findById(taskId);
+    if (!task) {
+      throw new NotFoundError("Task not found", { taskId });
+    }
+    const currentAssignment = await this.prisma.taskAssignment.findFirst({
+      where: {
+        task_id: taskId,
+      },
+    });
+    if (currentAssignment) {
+      const newAssignment = await this.prisma.taskAssignment.update({
+        where: {
+          id: currentAssignment.id,
+        },
+        data: assignment,
+      });
+      this.logger.debug({
+        msg: "re-assigned task to user",
+        data: {
+          taskId,
+          newAssignment,
+        },
+      });
+    } else {
+      const taskAssignment = await this.prisma.taskAssignment.create({
+        data: {
+          task_id: taskId,
+          ...assignment,
+        },
+      });
+      this.logger.debug({
+        msg: "Assigned task to user",
+        data: {
+          taskId,
+          taskAssignment,
+        },
+      });
+    }
+    const assignedTask = await this.findById(taskId);
+    return assignedTask;
+  }
+
+  async removeTaskAssignment(taskId: string, assignedToUserId: string) {
+    const task = await this.findById(taskId);
+    if (!task) {
+      throw new NotFoundError("Task not found", { taskId });
+    }
+    const taskAssignment = await this.prisma.taskAssignment.deleteMany({
+      where: {
+        task_id: taskId,
+        assigned_to_user_id: assignedToUserId,
+      },
+    });
+    this.logger.debug({
+      msg: "Removed task assignment",
+      data: {
+        taskId,
+        taskAssignment,
+      },
+    });
+    const unassignedTask = await this.findById(taskId);
+    return unassignedTask;
   }
 
   async delete(id: string) {

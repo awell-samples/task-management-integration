@@ -5,8 +5,9 @@ export type EnvironmentVariables = {
   AWELL_ENVIRONMENT: string;
   STYTCH_PROJECT_ID: string;
   STYTCH_SECRET: string;
-  STYTCH_PUBLIC_TOKEN: string;
   SESSION_SECRET: string;
+  LOG_LEVEL: string;
+  PRETTY_LOGS: string;
 };
 
 export function getEnv<T extends keyof EnvironmentVariables>(

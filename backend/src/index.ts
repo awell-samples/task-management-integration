@@ -7,13 +7,16 @@ import routes from "./routes";
 import { servicesPlugin } from "./plugins";
 import { configSchema } from "./config";
 import { errorHandler, authHandler, userContextHandler } from "./hooks";
+import { getEnv } from "./environment";
 
 const server = Fastify({
   logger: {
-    level: "debug",
-    transport: {
-      target: "pino-pretty",
-    },
+    level: getEnv("LOG_LEVEL") ?? "info",
+    ...(getEnv("PRETTY_LOGS") === "true" && {
+      transport: {
+        target: "pino-pretty",
+      },
+    }),
   },
 });
 

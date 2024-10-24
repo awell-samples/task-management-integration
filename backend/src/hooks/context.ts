@@ -7,8 +7,8 @@ export async function userContextHandler(
   reply: FastifyReply,
 ) {
   const userId = request.headers["x-user-id"] as string;
-  this.log.debug({ msg: "user context", userId });
   if (!isNil(userId)) {
+    this.log.debug({ msg: "user context", userId });
     const user = await this.services.user.findById(userId);
     if (!isNil(user)) {
       request.context.user = user;

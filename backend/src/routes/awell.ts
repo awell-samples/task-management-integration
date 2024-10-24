@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { Task, TaskStatus } from "../types";
 import { Type, type Static } from "@sinclair/typebox";
 import { BadRequestError, NotFoundError } from "../error";
+import { isNil } from "lodash";
 
 const activityWebhookBody = Type.Object({
   activity: Type.Object({
@@ -55,7 +56,7 @@ const activityWebhookSchema = {
 
 export default async function (fastify: FastifyInstance) {
   fastify.post<{ Body: Static<typeof activityWebhookBody> }>(
-    "/awell",
+    "/awell-activities",
     { schema: activityWebhookSchema },
     async (request, reply) => {
       const { activity, pathway, event_type } = request.body;
@@ -117,10 +118,23 @@ export default async function (fastify: FastifyInstance) {
               pathway,
               task,
             });
-            // await fastify.services.task.updateStatus({
-            //   id: task.id,
-            //   status: TaskStatus.COMPLETED,
-            // });
+            if (!isNil(task)) {
+              await fastify.services.task.updateStatus({
+                id: task.id,
+                status: TaskStatus.COMPLETED,
+              });
+              fastify.log.debug({
+                msg: "Task completed from activity completion",
+                activity,
+                pathway,
+              });
+            } else {
+              fastify.log.warn({
+                msg: "Task not found using activity ID",
+                activity,
+                pathway,
+              });
+            }
             fastify.log.debug({
               msg: "Task completed from activity completion",
               activity,
