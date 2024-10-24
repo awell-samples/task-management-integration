@@ -1,16 +1,13 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import PatientService from "../services/patient-service";
 import { Patient } from "../types";
 
 export default async function patientRoutes(fastify: FastifyInstance) {
-  const patientService = new PatientService(fastify);
-
   // Create a new patient
   fastify.post(
     "/patients",
     async (request: FastifyRequest<{ Body: Patient }>, reply: FastifyReply) => {
       try {
-        const patient = await patientService.create(request.body);
+        const patient = await fastify.services.patient.create(request.body);
         return reply.status(201).send(patient);
       } catch (err) {
         fastify.log.error(err);
@@ -24,7 +21,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
     "/patients",
     async (_request: FastifyRequest, reply: FastifyReply) => {
       try {
-        const patients = await patientService.findAll();
+        const patients = await fastify.services.patient.findAll();
         return reply.send(patients);
       } catch (err) {
         fastify.log.error(err);
@@ -41,7 +38,9 @@ export default async function patientRoutes(fastify: FastifyInstance) {
       reply: FastifyReply,
     ) => {
       try {
-        const patient = await patientService.findById(request.params.id);
+        const patient = await fastify.services.patient.findById(
+          request.params.id,
+        );
         return reply.send(patient);
       } catch (err) {
         fastify.log.error(err);
@@ -61,7 +60,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
       reply: FastifyReply,
     ) => {
       try {
-        const patient = await patientService.update({
+        const patient = await fastify.services.patient.update({
           id: request.params.id,
           ...request.body,
         });
@@ -81,7 +80,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
       reply: FastifyReply,
     ) => {
       try {
-        await patientService.delete(request.params.id);
+        await fastify.services.patient.delete(request.params.id);
         return reply.status(204).send();
       } catch (err) {
         fastify.log.error(err);
@@ -98,7 +97,7 @@ export default async function patientRoutes(fastify: FastifyInstance) {
       reply: FastifyReply,
     ) => {
       try {
-        const patient = await patientService.findByAwellPatientId(
+        const patient = await fastify.services.patient.findByAwellPatientId(
           request.params.awellPatientId,
         );
         return reply.send(patient);

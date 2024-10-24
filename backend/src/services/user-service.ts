@@ -1,62 +1,81 @@
+import { isNil } from "lodash";
 import { BadRequestError, NotFoundError } from "../error";
 import { User } from "../types";
-import { FastifyInstance } from "fastify";
+import { FastifyBaseLogger } from "fastify";
+import { Inject, Service } from "typedi";
+import { PrismaClient } from "@prisma/client";
 
+@Service()
 export default class UserService {
-  private _pg: FastifyInstance["pg"];
-  private logger: FastifyInstance["log"];
-
-  constructor(fastify: FastifyInstance) {
-    this._pg = fastify.pg;
-    this.logger = fastify.log;
-  }
+  constructor(
+    @Inject("prisma") private prisma: PrismaClient,
+    @Inject("logger") private logger: FastifyBaseLogger,
+  ) {}
 
   async create(user: User) {
-    try {
-      const { rows } = await this._pg.query(
-        `INSERT INTO users (id, first_name, last_name, email, created_at, updated_at) 
-         VALUES (uuid_generate_v4(), $1, $2, $3, NOW(), NOW()) 
-         RETURNING *`,
-        [user.first_name, user.last_name, user.email],
-      );
-      this.logger.debug({ msg: "Created user", data: { user: rows[0] } });
-      return rows[0];
-    } catch (err) {
-      const error = err as unknown as Error;
-      throw new BadRequestError(error.message, { user }, error.stack);
-    }
+    this.logger.debug({ msg: "Creating user", data: { user } });
+    const resp = await this.prisma.user.create({
+      data: user,
+    });
+    this.logger.debug({ msg: "Created user", data: { user: resp } });
+    return resp;
   }
 
   async findAll() {
-    const { rows } = await this._pg.query(
-      "SELECT * FROM users ORDER BY created_at DESC",
-    );
-    this.logger.debug({ msg: "Returning users", data: { count: rows.length } });
-    return rows;
+    const resp = await this.prisma.user.findMany({
+      orderBy: {
+        created_at: "desc",
+      },
+    });
+    this.logger.debug({
+      msg: "find all",
+      data: {
+        users: resp,
+      },
+    });
+    return resp;
   }
 
   async findById(id: string) {
-    const { rows } = await this._pg.query(
-      "SELECT * FROM users WHERE id = $1 LIMIT 1",
-      [id],
-    );
-    if (rows.length === 0) {
+    const resp = await this.prisma.user.findUnique({
+      where: {
+        id,
+      },
+    });
+    this.logger.debug({
+      msg: "find by id",
+      data: {
+        id,
+        user: resp,
+      },
+    });
+    if (isNil(resp)) {
       throw new NotFoundError("User not found", { id });
     }
-    this.logger.debug({ msg: "Returning user", data: { user: rows[0] } });
-    return rows[0];
+    return resp;
   }
 
   async findByEmail(email: string) {
-    const { rows } = await this._pg.query(
-      "SELECT * FROM users WHERE email = $1 LIMIT 1",
-      [email],
-    );
-    if (rows.length === 0) {
+    this.logger.debug({ msg: "Finding user", data: { email } });
+    if (!email) {
+      throw new BadRequestError("Email is required", { email });
+    }
+    const resp = await this.prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+    if (isNil(resp)) {
       throw new NotFoundError("User not found", { email });
     }
-    this.logger.debug({ msg: "Returning user", data: { user: rows[0] } });
-    return rows[0];
+    this.logger.debug({
+      msg: "Found user",
+      data: {
+        email,
+        user: resp,
+      },
+    });
+    return resp;
   }
 
   async update(user: Partial<User>) {
@@ -64,46 +83,45 @@ export default class UserService {
     if (!currentUser) {
       throw new NotFoundError("User not found", { id: user.id });
     }
-
-    const { rows } = await this._pg.query(
-      `UPDATE users SET 
-        first_name = $1, last_name = $2, email = $3, updated_at = NOW() 
-        WHERE id = $4 RETURNING *`,
-      [user.first_name, user.last_name, user.email, user.id],
-    );
-
-    if (rows.length === 0) {
-      throw new NotFoundError("User not found", { id: user.id });
-    }
-    this.logger.debug({ msg: "Updated user", data: { user: rows[0] } });
-    return rows[0];
+    const resp = await this.prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: user,
+    });
+    this.logger.debug({ msg: "Updated user", data: { user: resp } });
+    return resp;
   }
 
   async delete(id: string) {
-    const { rowCount } = await this._pg.query(
-      "DELETE FROM users WHERE id = $1",
-      [id],
-    );
-    if (rowCount === 0) {
+    const user = await this.findById(id);
+    if (!user) {
       throw new NotFoundError("User not found", { id });
     }
+    await this.prisma.user.delete({
+      where: {
+        id,
+      },
+    });
     this.logger.debug({ msg: "Deleted user", data: { id } });
   }
 
   async getUsersByEmailDomain(domain: string) {
-    try {
-      const { rows } = await this._pg.query(
-        `SELECT * FROM users WHERE email LIKE $1`,
-        [`%@${domain}`],
-      );
-      this.logger.debug({
-        msg: "Returning users",
-        data: { count: rows.length },
-      });
-      return rows;
-    } catch (err) {
-      const error = err as unknown as Error;
-      throw new BadRequestError(error.message, { domain }, error.stack);
+    if (!domain) {
+      throw new BadRequestError("Domain is required", { domain });
     }
+    this.logger.debug({ msg: "Finding users", data: { domain } });
+    const users = await this.prisma.user.findMany({
+      where: {
+        email: {
+          endsWith: `@${domain}`,
+        },
+      },
+    });
+    this.logger.debug({
+      msg: "Returning users",
+      data: { count: users.length },
+    });
+    return users;
   }
 }

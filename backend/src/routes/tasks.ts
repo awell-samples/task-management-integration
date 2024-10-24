@@ -1,43 +1,63 @@
-import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { FastifyInstance } from "fastify";
 import { CreateTaskSchema, Task } from "../types";
-import TaskService from "../services/task-service";
+import { FindAllOptions } from "../services/task-service";
+
+interface FindTaskQueryParams {
+  status?: string;
+  patient_id?: string;
+  populate?: string;
+}
+
+const deconstructFindTaskOptions = (
+  options: FindTaskQueryParams,
+): FindAllOptions => {
+  const { status, patient_id, populate } = options;
+  return {
+    ...(status && { status: status.split(",") }),
+    ...(patient_id && { patient_id }),
+    ...(populate && { populate: populate === "true" }),
+  };
+};
 
 export default async function (fastify: FastifyInstance) {
-  const taskService = new TaskService(fastify);
-
   // Create a new task
   fastify.post<{ Body: Task }>(
     "/tasks",
     { schema: CreateTaskSchema },
     async (request, reply) => {
       const taskToCreate: Task = request.body;
-      const task = await taskService.create(taskToCreate);
+      const task = await fastify.services.task.create(taskToCreate);
       return reply.send(task);
     },
   );
 
   // Get all tasks
   fastify.get<{
-    Querystring: {
-      populate?: string;
-      status?: string;
-      patient_id?: string;
-    };
+    Querystring: FindTaskQueryParams;
   }>("/tasks", async (request, reply) => {
-    const { status, populate, patient_id } = request.query;
-    const rows = await taskService.findAll({
-      ...(status && { status: status.split(",") }),
-      ...(patient_id && { patient_id }),
-      ...(populate && { populate: populate === "true" }),
-    });
+    const opts = deconstructFindTaskOptions(request.query);
+    const rows = await fastify.services.task.findAll(opts);
     return reply.send(rows);
   });
 
   // find a task by awell id
-  fastify.get("/tasks/find", async (request, reply) => {
-    const { activity_id } = request.query as { activity_id: string };
-    const task = await taskService.findByAwellActivityId(activity_id);
-    return reply.send(task);
+  fastify.get<{ Querystring: { activity_id: string } & FindTaskQueryParams }>(
+    "/tasks/find",
+    async (request, reply) => {
+      const { activity_id } = request.query;
+      const task =
+        await fastify.services.task.findByAwellActivityId(activity_id);
+      return reply.send(task);
+    },
+  );
+
+  fastify.get<{
+    Querystring: FindTaskQueryParams;
+  }>("/tasks/my", async (request, reply) => {
+    const { id: user_id } = request.context.user;
+    const opts = deconstructFindTaskOptions(request.query);
+    const tasks = await fastify.services.task.findAll({ user_id, ...opts });
+    return reply.send(tasks);
   });
 
   // Get a task by ID
@@ -45,7 +65,7 @@ export default async function (fastify: FastifyInstance) {
     "/tasks/:id",
     async (request, reply) => {
       const { id } = request.params;
-      const task = await taskService.findById(id);
+      const task = await fastify.services.task.findById(id);
       return reply.send(task);
     },
   );
@@ -59,11 +79,39 @@ export default async function (fastify: FastifyInstance) {
         return reply.code(400).send({ message: "Invalid task ID" });
       }
       const task: Task = request.body;
-      const updatedTask = await taskService.update({ ...task, id: taskId });
+      const updatedTask = await fastify.services.task.update({
+        ...task,
+        id: taskId,
+      });
       return reply.send({
         message: "Task updated successfully",
         task: updatedTask,
       });
+    },
+  );
+
+  fastify.put<{ Params: { taskId: string; userId: string } }>(
+    "/tasks/:taskId/assign/:userId",
+    async (request, reply) => {
+      const { taskId, userId } = request.params;
+      const assignByUserId = request.context.user.id as string;
+      const task = await fastify.services.task.assignTaskToUser(taskId, {
+        assigned_to_user_id: userId,
+        assigned_by_user_id: assignByUserId,
+      });
+      return reply.send(task);
+    },
+  );
+
+  fastify.delete<{ Params: { taskId: string; userId: string } }>(
+    "/tasks/:taskId/assign/:userId",
+    async (request, reply) => {
+      const { taskId, userId } = request.params;
+      const task = await fastify.services.task.removeTaskAssignment(
+        taskId,
+        userId,
+      );
+      return reply.send(task);
     },
   );
 
@@ -75,7 +123,7 @@ export default async function (fastify: FastifyInstance) {
       if (taskId === undefined) {
         return reply.code(400).send({ message: "Invalid task ID" });
       }
-      await taskService.delete(taskId);
+      await fastify.services.task.delete(taskId);
       return reply.send({ message: "Task deleted successfully", id: taskId });
     },
   );

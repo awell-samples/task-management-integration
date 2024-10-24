@@ -1,15 +1,10 @@
-import { AwellSdk, type Environment } from "@awell-health/awell-sdk";
-import { FastifyInstance } from "fastify";
+import { AwellSdk } from "@awell-health/awell-sdk";
 import _ from "lodash";
+import { Inject, Service } from "typedi";
 
+@Service()
 export default class AwellService {
-  sdk: AwellSdk;
-  constructor(fastify: FastifyInstance) {
-    this.sdk = new AwellSdk({
-      environment: fastify.config.AWELL_ENVIRONMENT as Environment,
-      apiKey: fastify.config.AWELL_API_KEY,
-    });
-  }
+  constructor(@Inject("awellSdk") private sdk: AwellSdk) {}
 
   async getPatientProfile(patientId: string) {
     const resp = await this.sdk.orchestration.query({

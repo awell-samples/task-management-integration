@@ -4,25 +4,29 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "dev": "nodemon",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "migrate": "node-pg-migrate --config migration-config.ts --tsconfig tsconfig.json up",
-    "migrate:down": "node-pg-migrate --config migration-config.ts --tsconfig tsconfig.json down",
+    "migrate": "prisma db push",
     "start": "node dist/index.js"
   },
   "dependencies": {
     "@awell-health/awell-sdk": "^0.1.13",
     "@fastify/env": "^4.4.0",
     "@fastify/postgres": "^5.2.2",
+    "@prisma/client": "5.18.0",
     "@sinclair/typebox": "^0.32.35",
     "dotenv": "^16.4.5",
-    "fastify": "^4.28.1",
+    "fastify": "4.28.1",
+    "fastify-plugin": "^4.5.1",
     "lodash": "^4.17.21",
     "node-pg-migrate": "^7.6.1",
     "pg": "^8.12.0",
-    "pino": "^9.3.2"
+    "pino": "^9.3.2",
+    "reflect-metadata": "^0.2.2",
+    "stytch": "^11.5.0",
+    "typedi": "^0.10.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
@@ -36,6 +40,7 @@
     "nodemon": "^3.1.4",
     "pino-pretty": "^11.2.2",
     "prettier": "^3.3.3",
+    "prisma": "^5.18.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.0.1"

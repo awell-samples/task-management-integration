@@ -1,7 +1,12 @@
 node_modules/
+!node_modules/.prisma/
 .env
 dist/
 
 .DS_Store
 
 *.dump
+
+.*.local
+.*.env
+!*.env.example

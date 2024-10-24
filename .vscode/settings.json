@@ -7,12 +7,14 @@
     "**/.DS_Store": true,
     "**/Thumbs.db": true,
     "**/.retool_types/**": true,
-    "**/*tsconfig.json": true,
-    ".cache": true,
-    "retool.config.json": true
+    ".cache": true
   },
   "editor.formatOnSave": true,
   "[typescript]": {
     "editor.defaultFormatter": "dbaeumer.vscode-eslint"
   },
+  "[prisma]": {
+    "editor.defaultFormatter": "Prisma.prisma",
+    "editor.tabSize": 2
+  }
 }
